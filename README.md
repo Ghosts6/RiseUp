@@ -345,13 +345,14 @@ riseup/
 │       └── ci.yml                  # CI/CD pipeline
 │
 ├── docs/
-│   └── stage-1-design/             # Stage 1 documentation
-│       ├── 01-project-scope.md
-│       ├── 02-use-cases.md
-│       └── 03-design-decisions.md
-│       ├── 04-feature-to-design-mapping.md
-│       └── 05-uml-diagrams/
-│
+│   ├── stage-1-design/             # Stage 1 documentation
+│   │   ├── 01-project-scope.md
+│   │   ├── 02-use-cases.md
+│   │   ├── 03-design-decisions.md
+│   │   ├── 04-feature-to-design-mapping.md
+│   │   └── 05-uml-diagrams/
+│   ├── stage-2-implementation/ 
+│   └── stage-3-testing/
 ├── docker-compose.yml              # Docker setup
 ├── .gitignore
 └── README.md                        # This file
@@ -423,6 +424,6 @@ For questions or issues, please open a [GitHub Issue](https://github.com/youruse
 
 ---
 
-**Last Updated:** September 25th 2026  
+**Last Updated:** September 26th 2026  
 **Project Status:** Stage 1 - Design Phase(Almost done)  
 **Python:** 3.10+ | **Node:** 16+ | **PostgreSQL:** 12+

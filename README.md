@@ -165,7 +165,29 @@ graph TB
 
 ### 🤖 AI & LLM
 
-**To do**
+RiseUp uses AI as an active agent component rather than as a simple
+LLM chatbot. The system is designed to use both **OpenAI APIs** and
+**Anthropic Claude APIs** as AI/LLM providers.
+
+| AI Provider | Purpose | Role in RiseUp |
+|-------------|---------|----------------|
+| **OpenAI API** | Natural-language understanding, task processing, and AI-assisted reasoning | Processes natural-language commands, assists with task interpretation and prioritization |
+| **Anthropic Claude API** | Agent reasoning, planning, decision making, and adaptive escalation | Analyzes user context and history to determine appropriate alarm and escalation actions |
+
+#### AI Agent Behavior
+
+The RiseUp AI agent participates in multi-step decision making instead of
+only generating text. Depending on the feature, the agent can:
+
+- Interpret natural-language user requests.
+- Analyze user preferences and historical behavior.
+- Prioritize tasks based on urgency, context, and user behavior.
+- Determine appropriate alarm verification challenges.
+- Decide when an alarm should escalate.
+- Select an appropriate escalation method such as SMS, phone call, or Alexa.
+- Adapt future alarm and reminder behavior based on previous outcomes.
+- Generate personalized recommendations.
+- Process information from application tools and services before making a decision.
 
 ### 🔗 External Integrations
 
@@ -360,14 +382,50 @@ riseup/
 
 ---
 
+### Stage 1 — Design & Architecture
+
+The complete Stage 1 design documentation is available in:
+
+**[`docs/stage-1-design/`](docs/stage-1-design/)**
+
+It contains the project scope, use cases, design decisions, feature-to-design
+traceability, and UML diagrams required for the Stage 1 design.
+
+#### Stage 1 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`project-scope.md`](docs/stage-1-design/project-scope.md) | Project problem, goals, users, agent description, features, and overall scope |
+| [`use-cases.md`](docs/stage-1-design/use-cases.md) | Detailed use cases and system interactions |
+| [`design-decisions.md`](docs/stage-1-design/design-decisions.md) | Architecture and design decisions, including design patterns |
+| [`feature-to-design-mapping.md`](docs/stage-1-design/feature-to-design-mapping.md) | Traceability between features, use cases, classes, methods, sequence diagrams, and design patterns |
+
+#### Stage 1 UML Diagrams
+
+All Stage 1 UML diagrams are available in:
+
+**[`docs/stage-1-design/uml-diagrams/`](docs/stage-1-design/uml-diagrams/)**
+
+| Diagram | Description |
+|---------|-------------|
+| [`ArchitectureDiagram.png`](docs/stage-1-design/uml-diagrams/ArchitectureDiagram.png) | Overall system architecture |
+| [`ClassDiagram.png`](docs/stage-1-design/uml-diagrams/ClassDiagram.png) | System classes, interfaces, relationships, and AI/agent components |
+| [`UseCaseDiagram.png`](docs/stage-1-design/uml-diagrams/UseCaseDiagram.png) | Actors and major system use cases |
+| [`SequenceDiagramAi.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramAi.png) | AI agent interaction and decision-making flow |
+| [`SequenceDiagramAlarm.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramAlarm.png) | Alarm and verification workflow |
+| [`SequenceDiagramLearningEngine.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramLearningEngine.png) | Behavioral learning and adaptation workflow |
+| [`SequenceDiagramTaskReminder.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramTaskReminder.png) | Task reminder and prioritization workflow |
+
+---
+
 ## Project Stages
 
 ### 📋 Stage 1: Design & Architecture
 - [x] Project scope and problem statement
 - [x] Major features definition
-- [ ] Use cases documentation
-- [ ] UML diagrams (class, sequence, use-case)
-- [ ] Design mapping
+- [x] Use cases documentation
+- [x] UML diagrams (class, sequence, use-case)
+- [x] Design mapping
 
 ### 🔨 Stage 2: AI-Human Collaborative Implementation
 - [ ] Backend development
@@ -392,8 +450,11 @@ riseup/
 # Database
 DATABASE_URL=postgresql://user:password@localhost/riseup_db
 
-# API Keys
-CLAUDE_API_KEY=your_key_here
+# AI / LLM APIs
+OPENAI_API_KEY=your_openai_key_here
+CLAUDE_API_KEY=your_anthropic_key_here
+
+# Api keys
 TWILIO_ACCOUNT_SID=your_sid
 TWILIO_AUTH_TOKEN=your_token
 TWILIO_PHONE_NUMBER=+1234567890
@@ -424,6 +485,6 @@ For questions or issues, please open a [GitHub Issue](https://github.com/youruse
 
 ---
 
-**Last Updated:** September 26th 2026  
-**Project Status:** Stage 1 - Design Phase(Almost done)  
+**Last Updated:** September 29th 2026  
+**Project Status:** Stage 1 - Design Phase(done)  
 **Python:** 3.10+ | **Node:** 16+ | **PostgreSQL:** 12+

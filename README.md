@@ -165,29 +165,25 @@ graph TB
 
 ### 🤖 AI & LLM
 
-RiseUp uses AI as an active agent component rather than as a simple
-LLM chatbot. The system is designed to use both **OpenAI APIs** and
-**Anthropic Claude APIs** as AI/LLM providers.
+RiseUp uses AI as an **agent** (`AgentController`: observe → decide → tool act → re-observe),
+not a one-shot chatbot. Long-term memory is `UserProfile` + `EscalationLog`.
 
-| AI Provider | Purpose | Role in RiseUp |
-|-------------|---------|----------------|
-| **OpenAI API** | Natural-language understanding, task processing, and AI-assisted reasoning | Processes natural-language commands, assists with task interpretation and prioritization |
-| **Anthropic Claude API** | Agent reasoning, planning, decision making, and adaptive escalation | Analyzes user context and history to determine appropriate alarm and escalation actions |
+Both providers implement `LLMProvider` (Strategy); `LLMClient` selects the configured one.
+
+| Provider | Model | Default role |
+|----------|-------|----------------|
+| **Anthropic Claude** | `claude-sonnet-4-5` | Escalation, prioritization, recommendations |
+| **OpenAI** | `gpt-4o` | Natural-language reminder parsing |
 
 #### AI Agent Behavior
 
-The RiseUp AI agent participates in multi-step decision making instead of
-only generating text. Depending on the feature, the agent can:
-
-- Interpret natural-language user requests.
-- Analyze user preferences and historical behavior.
-- Prioritize tasks based on urgency, context, and user behavior.
-- Determine appropriate alarm verification challenges.
-- Decide when an alarm should escalate.
-- Select an appropriate escalation method such as SMS, phone call, or Alexa.
-- Adapt future alarm and reminder behavior based on previous outcomes.
-- Generate personalized recommendations.
-- Process information from application tools and services before making a decision.
+- Interpret natural-language user requests
+- Analyze preferences and history (memory)
+- Prioritize tasks; decide escalation channels
+- Execute tools (Twilio / Alexa / Firebase) and retry on failure
+- Fall back to a deterministic escalation ladder if the LLM fails
+- Generate personalized recommendations
+- Store decision reasoning for explainability (F14)
 
 ### 🔗 External Integrations
 
@@ -282,8 +278,8 @@ graph LR
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/yourusername/riseup.git
-   cd riseup
+   git clone https://github.com/Ghosts6/RiseUp.git
+   cd RiseUp
    ```
 
 2. **Setup Backend**
@@ -368,16 +364,18 @@ riseup/
 │
 ├── docs/
 │   ├── stage-1-design/             # Stage 1 documentation
-│   │   ├── 01-project-scope.md
-│   │   ├── 02-use-cases.md
-│   │   ├── 03-design-decisions.md
-│   │   ├── 04-feature-to-design-mapping.md
-│   │   └── 05-uml-diagrams/
+│   │   ├── project-scope.md
+│   │   ├── feature-specification.md
+│   │   ├── use-cases.md
+│   │   ├── design-decisions.md
+│   │   ├── design-patterns.md
+│   │   ├── feature-to-design-mapping.md
+│   │   └── uml-diagrams/           # PNG of diagrams
 │   ├── stage-2-implementation/ 
 │   └── stage-3-testing/
 ├── docker-compose.yml              # Docker setup
 ├── .gitignore
-└── README.md                        # This file
+└── README.md
 ```
 
 ---
@@ -395,26 +393,29 @@ traceability, and UML diagrams required for the Stage 1 design.
 
 | Document | Description |
 |----------|-------------|
-| [`project-scope.md`](docs/stage-1-design/project-scope.md) | Project problem, goals, users, agent description, features, and overall scope |
-| [`use-cases.md`](docs/stage-1-design/use-cases.md) | Detailed use cases and system interactions |
-| [`design-decisions.md`](docs/stage-1-design/design-decisions.md) | Architecture and design decisions, including design patterns |
-| [`feature-to-design-mapping.md`](docs/stage-1-design/feature-to-design-mapping.md) | Traceability between features, use cases, classes, methods, sequence diagrams, and design patterns |
+| [`project-scope.md`](docs/stage-1-design/project-scope.md) | Problem, users, agent, models, architecture, F01–F14 summary |
+| [`feature-specification.md`](docs/stage-1-design/feature-specification.md) | **Canonical** 14 features (8 fields each) + CLI design |
+| [`use-cases.md`](docs/stage-1-design/use-cases.md) | UC-01–UC-09 with Related Feature(s) |
+| [`design-decisions.md`](docs/stage-1-design/design-decisions.md) | Architecture / AI / UX decisions (incl. AgentController loop) |
+| [`design-patterns.md`](docs/stage-1-design/design-patterns.md) | Six patterns with problem, classes, roles, rationale |
+| [`feature-to-design-mapping.md`](docs/stage-1-design/feature-to-design-mapping.md) | Traceability table + Task 4 for all 14 features |
 
 #### Stage 1 UML Diagrams
 
-All Stage 1 UML diagrams are available in:
-
-**[`docs/stage-1-design/uml-diagrams/`](docs/stage-1-design/uml-diagrams/)**
+All diagrams (PNG): **[`docs/stage-1-design/uml-diagrams/`](docs/stage-1-design/uml-diagrams/)**
 
 | Diagram | Description |
 |---------|-------------|
 | [`ArchitectureDiagram.png`](docs/stage-1-design/uml-diagrams/ArchitectureDiagram.png) | Overall system architecture |
-| [`ClassDiagram.png`](docs/stage-1-design/uml-diagrams/ClassDiagram.png) | System classes, interfaces, relationships, and AI/agent components |
-| [`UseCaseDiagram.png`](docs/stage-1-design/uml-diagrams/UseCaseDiagram.png) | Actors and major system use cases |
-| [`SequenceDiagramAi.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramAi.png) | AI agent interaction and decision-making flow |
-| [`SequenceDiagramAlarm.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramAlarm.png) | Alarm and verification workflow |
-| [`SequenceDiagramLearningEngine.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramLearningEngine.png) | Behavioral learning and adaptation workflow |
-| [`SequenceDiagramTaskReminder.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramTaskReminder.png) | Task reminder and prioritization workflow |
+| [`ClassDiagram.png`](docs/stage-1-design/uml-diagrams/ClassDiagram.png) | Classes incl. CLI, agent, LLM providers, tools |
+| [`UseCaseDiagram.png`](docs/stage-1-design/uml-diagrams/UseCaseDiagram.png) | UC-01–UC-09 + Twilio/Alexa/Camera/LLM actors |
+| [`SequenceDiagramAlarm.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramAlarm.png) | **SD-01** Alarm / verify / check-in |
+| [`SequenceDiagramAi.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramAi.png) | **SD-02** Agent escalation loop |
+| [`SequenceDiagramTaskReminder.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramTaskReminder.png) | **SD-03** Reminders + prioritization |
+| [`SequenceDiagramLearningEngine.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramLearningEngine.png) | **SD-04** Learning |
+| [`SequenceDiagramCliRemind.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramCliRemind.png) | **SD-05** CLI / NL remind |
+| [`SequenceDiagramRecommendations.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramRecommendations.png) | **SD-06** Recommendations |
+| [`SequenceDiagramHistoryExplain.png`](docs/stage-1-design/uml-diagrams/SequenceDiagramHistoryExplain.png) | **SD-07** History / explain |
 
 ---
 
@@ -481,7 +482,7 @@ MIT License - See [LICENSE](LICENSE) file for details
 
 ## Support
 
-For questions or issues, please open a [GitHub Issue](https://github.com/yourusername/riseup/issues).
+For questions or issues, please open a [GitHub Issue](https://github.com/Ghosts6/RiseUp/issues).
 
 ---
 

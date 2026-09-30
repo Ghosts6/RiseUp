@@ -12,6 +12,9 @@ This document explains the important architectural and design decisions made dur
 4. [Testing & Reliability Decisions](#testing--reliability-decisions)
 5. [User Experience Decisions](#user-experience-decisions)
 
+Design **patterns** (Strategy, Adapter, Command, Observer, Factory Method, State) are documented in
+[`design-patterns.md`](./design-patterns.md), not duplicated here.
+
 ---
 
 ## Architectural Decisions
@@ -142,56 +145,71 @@ Create dedicated `EscalationEngine` class that orchestrates escalation decisions
 
 ---
 
-### AD-04: LLMClient as Abstraction
+### AD-04: LLMClient + LLMProvider (Adapter + Strategy)
 
 **Decision:**
-Wrap Claude API in `LLMClient` class rather than calling API directly from services.
+Domain code talks only to `LLMClient`. `LLMClient` delegates text generation to an
+`LLMProvider` strategy (`ClaudeProvider` or `OpenAIProvider`). Escalation **decisions**
+live on `EscalationEngine.decide_escalation()` (and the agent loop on `AgentController`),
+not on `LLMClient`.
 
-**LLMClient Responsibilities:**
-- Manage API credentials and keys
-- Build prompts from context
-- Handle API errors and retries
-- Parse LLM responses
-- Implement fallback logic if API fails
+**Models (Stage 1 design):**
+- Anthropic: `claude-sonnet-4-5` (default for escalation / recommendations)
+- OpenAI: `gpt-4o` (default for NL reminder parsing; interchangeable via config)
 
-**Why This Design:**
-- **Abstraction:** Services don't need to know Claude-specific details
-- **Testability:** Can mock `LLMClient` in tests
-- **Flexibility:** Can swap LLM providers later (switch to GPT, Llama, etc.)
-- **Error Handling:** Centralized error handling for LLM failures
-- **Rate Limiting:** Can implement rate limiting in one place
+**Responsibilities:**
+- `LLMProvider.complete(prompt) -> str` — vendor call only
+- `LLMClient.send_request()` — retries, timeouts, provider selection
+- `PromptBuilder` / `ResponseParser` — prompt construction and JSON validation
+- `EscalationEngine.decide_escalation()` — builds context, calls LLM, validates method
 
 **Example Usage:**
 ```python
-# Without abstraction (BAD):
-response = anthropic.messages.create(
-    model="claude-3",
-    messages=[...],
-    api_key=os.environ["CLAUDE_API_KEY"]
-)
+# BAD: decision logic and vendor SDK mixed
+response = anthropic.messages.create(model="claude-sonnet-4-5", messages=[...])
 
-# With abstraction (GOOD):
-llm_client = LLMClient()
-decision = llm_client.decide_escalation(context)
+# GOOD: engine decides; client only talks to a provider
+decision = escalation_engine.decide_escalation(alarm_id)  # may call llm_client.send_request()
 ```
 
 **Alternatives Considered:**
-1. **Direct API calls everywhere:**
-   - ❌ API key scattered across code
-   - ❌ Hard to test (must mock everywhere)
-   - ❌ Tight coupling to Claude
-   - ❌ Duplicate error handling
+1. **Direct API calls everywhere:** scattered keys, untestable, vendor lock-in
+2. **`LLMClient.decide_escalation()`:** mixes orchestration with transport (rejected)
 
-**Chosen:** LLMClient abstraction (clean, testable, flexible)
+**Chosen:** `LLMClient` + `LLMProvider` strategies; decisions stay in domain/agent layer
+
+---
+
+### AD-05: AgentController multi-step loop (not a one-shot LLM call)
+
+**Decision:**
+AI features that act on the world (escalation, NL reminder confirmation side-effects,
+recommendation apply) go through `AgentController.run(goal, context)`:
+
+1. **Observe** — load `UserProfile` + recent `EscalationLog` / reminder logs (agent memory)
+2. **Decide** — LLM returns a structured action (method, tool, args, reasoning)
+3. **Act** — `ToolManager` executes via `Tool` adapters
+4. **Observe outcome** — success/failure recorded
+5. **Re-decide** if the tool failed and a fallback remains; else stop with deterministic fallback ladder
+
+This satisfies the Stage 1 rule that a simple “prompt → display text” chatbot is not enough.
+
+**Memory:**
+- Short-term: current alarm/reminder context + last tool result
+- Long-term: `UserProfile` aggregates + `EscalationLog` history
 
 ---
 
 ## AI Integration Decisions
 
-### AI-01: Use Claude for Decision-Making
+### AI-01: Dual LLM providers (Claude + OpenAI)
 
 **Decision:**
-Use Claude (Anthropic) LLM for:
+Use **both** Anthropic Claude (`claude-sonnet-4-5`) and OpenAI (`gpt-4o`) behind
+`LLMProvider`. Default routing: Claude for escalation/recommendations; OpenAI for NL
+parsing. Either provider can be selected via config for any AI feature.
+
+Use the LLM agent for:
 - Escalation method selection (UC-03)
 - Task reminder prioritization (UC-05)
 - User behavior analysis
@@ -245,7 +263,7 @@ Escalation Decision:
    - ❌ Poor user experience
    - ❌ Cannot learn
 
-**Chosen:** Claude LLM (intelligent, adaptive, interpretable)
+**Chosen:** Dual providers (`claude-sonnet-4-5` + `gpt-4o`) behind `LLMProvider`, driven by `AgentController`
 
 ---
 
@@ -274,10 +292,9 @@ Use AI ONLY for decision-making, not for executing deterministic tasks.
 
 **Example:**
 ```python
-# CORRECT: AI for decision, deterministic for execution
-escalation_method = llm_client.decide_escalation(context)  # AI
-if escalation_method == "call":
-    success = twilio_client.make_call(user_phone)  # Deterministic
+# CORRECT: domain/agent decides; tools execute
+decision = escalation_engine.decide_escalation(alarm_id)  # AI orchestrated
+success = tool_manager.execute_escalation(decision.method)  # Deterministic tools
 
 # WRONG: AI for everything
 response = llm_client.verify_photo(photo_data)  # Don't do this!
@@ -601,12 +618,10 @@ Result: Log failed escalation, notify user dashboard
 **LLM Fallback:**
 ```python
 try:
-    decision = llm_client.decide_escalation(context)
+    decision = escalation_engine.decide_escalation(alarm_id)
 except APIError:
-    # Fallback to rule-based decision
-    decision = fallback_escalation(context)
-    
-    # Log for debugging
+    # Fallback ladder (UX-01), not another LLM call
+    decision = escalation_engine.fallback_ladder(alarm_id)
     log.warning(f"LLM failed, using fallback: {decision}")
 ```
 
@@ -627,33 +642,32 @@ except APIError:
 
 ## User Experience Decisions
 
-### UX-01: Progressive Escalation
+### UX-01: Fallback escalation ladder (not the primary AI path)
 
 **Decision:**
-Do NOT immediately call emergency contact. Escalate gradually:
-1. Alarm sound + verification task (2 min)
-2. Call user (if no response)
-3. SMS (if call fails)
-4. Alexa alert (if SMS not working)
-5. Emergency contact (last resort)
+**Primary path (UC-03):** `AgentController` + `EscalationEngine.decide_escalation()` let the
+LLM choose the next channel from enabled methods using `UserProfile` / `EscalationLog`.
+
+**Fallback ladder** (used when the LLM is down, returns invalid JSON, or picks a disabled
+method):
+1. Alarm sound + verification (already failed / timed out)
+2. Phone call
+3. SMS
+4. Alexa alert
+5. Emergency contact (last resort, consent required)
+
+This ladder is a **deterministic safety net**, not the normal AI policy. See also AD-05.
 
 **Why This Design:**
-- **Respectful:** Don't bother emergency contact unless necessary
-- **Effective:** Most users respond to earlier escalation levels
-- **User Control:** Users can disable escalation if desired
-- **Learning:** System learns which level works best per user
+- AI can personalize order; system still wakes the user if the LLM fails
+- Emergency contact stays last even in the fallback path
+- Matches UC-03 “AI chooses” without contradicting reliability requirements
 
 **Alternatives Considered:**
-1. **Immediate emergency contact:**
-   - ❌ Overuses emergency contact
-   - ❌ Contact gets annoyed
-   - ❌ May stop answering
+1. **Fixed ladder only (no AI):** rejects the agent requirement
+2. **AI only, no fallback:** alarm can be silently dropped on API outage
 
-2. **Only call, no other methods:**
-   - ❌ Doesn't work if phone dead/off
-   - ❌ SMS might work when call doesn't
-
-**Chosen:** Progressive escalation
+**Chosen:** AI decision first; progressive ladder as fallback only
 
 ---
 

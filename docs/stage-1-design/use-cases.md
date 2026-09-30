@@ -2,13 +2,17 @@
 
 ## Use Case Overview
 
-RiseUp has five major use cases that cover the core functionality:
+1. **UC-01:** Configure and Set an Alarm — F01  
+2. **UC-02:** Alarm Verification & Check-in — F02, F03  
+3. **UC-03:** AI Escalation — F04, F05  
+4. **UC-04:** Create a Task Reminder (form or NL) — F07, F08  
+5. **UC-05:** Send Prioritized Task Reminders — F09, F10  
+6. **UC-06:** Manage Existing Reminders — F08  
+7. **UC-07:** View Analytics & Recommendations — F11, F12, F13  
+8. **UC-08:** Manage Escalation Preferences & Emergency Contact — F06  
+9. **UC-09:** View History & Decision Explanation — F14  
 
-1. **UC-01:** User Configures and Sets an Alarm
-2. **UC-02:** Alarm Triggers and User Completes Verification Task
-3. **UC-03:** User Ignores Alarm or Verification → AI Escalates
-4. **UC-04:** User Creates a Task Reminder
-5. **UC-05:** System Sends Prioritized Task Reminders
+External actors (shown on the use-case diagram): **User**, **System/Scheduler**, **LLM Service** (Claude / OpenAI), **Twilio**, **Alexa**, **Camera / Vision**, **Firebase** (push).
 
 ---
 
@@ -19,6 +23,9 @@ UC-01
 
 ### Use Case Name
 Configure and Set Alarm
+
+### Related Feature(s)
+F01 — Alarm Management
 
 ### Primary Actor
 User
@@ -124,12 +131,16 @@ UC-02
 ### Use Case Name
 Alarm Triggers and Complete Verification to Dismiss
 
+### Related Feature(s)
+F02 — Verification Challenge; F03 — Post-Wake Check-in
+
 ### Primary Actor
 User
 
 ### Secondary Actors
-- System (Alarm Engine)
-- LLM (Claude - for AI features)
+- System (Alarm Engine, Scheduler)
+- Camera / Vision (for object-detection tasks)
+- Firebase (check-in push)
 
 ### Goal
 When alarm triggers, user must complete a verification task to prove they are awake before alarm can be dismissed.
@@ -246,13 +257,18 @@ UC-03
 ### Use Case Name
 AI Escalation When User Doesn't Respond
 
+### Related Feature(s)
+F04 — AI Escalation Decision; F05 — Multi-Channel Escalation Execution
+
 ### Primary Actor
-System (AI Escalation Engine)
+System (AgentController / EscalationEngine)
 
 ### Secondary Actors
 - User (recipient of escalation)
-- LLM (Claude - for AI reasoning and decision-making)
-- External Tools (Twilio for calls/SMS, Alexa SDK, etc.)
+- LLM Service (Claude `claude-sonnet-4-5` / OpenAI `gpt-4o`)
+- Twilio (calls / SMS)
+- Alexa (alerts)
+- Firebase (optional push)
 
 ### Goal
 When user doesn't respond to alarm or verification task, system intelligently escalates using AI to determine the best next action.
@@ -427,12 +443,15 @@ UC-04
 ### Use Case Name
 Create Task Reminder
 
+### Related Feature(s)
+F07 — Natural-Language Reminder Creation; F08 — Reminder Management
+
 ### Primary Actor
 User
 
 ### Secondary Actors
 - System (Task Scheduler)
-- LLM (Claude - for natural language parsing)
+- LLM Service (default OpenAI `gpt-4o` for NL parse; Claude optional)
 
 ### Goal
 User creates a task reminder and the system schedules it to notify the user at the appropriate time.
@@ -571,12 +590,16 @@ UC-05
 ### Use Case Name
 Send Prioritized Task Reminders
 
+### Related Feature(s)
+F09 — AI Reminder Prioritization; F10 — Reminder Escalation Levels
+
 ### Primary Actor
 System (Task Scheduler & AI Prioritizer)
 
 ### Secondary Actors
 - User (recipient)
-- LLM (Claude - for prioritization decision)
+- LLM Service (Claude / OpenAI)
+- Firebase / Twilio (notifications)
 
 ### Goal
 At scheduled time, system intelligently prioritizes and sends task reminders to maximize user engagement.
@@ -746,66 +769,257 @@ System's scheduler detects that reminder notification time has arrived.
 
 ---
 
+---
+
+## UC-06: Manage Existing Reminders
+
+### Use Case ID
+UC-06
+
+### Use Case Name
+Manage Existing Reminders
+
+### Related Feature(s)
+F08 — Reminder Management
+
+### Primary Actor
+User
+
+### Secondary Actors
+- System (ReminderScheduler)
+
+### Goal
+Edit, snooze, complete, or delete existing reminders (including recurring series choices).
+
+### Preconditions
+- At least one reminder exists (UC-04)
+
+### Trigger
+User opens task dashboard / runs `riseup task list|edit|done|snooze|delete`
+
+### Main Success Scenario
+1. User lists reminders (GUI filters or CLI list)
+2. User selects edit / complete / snooze / delete
+3. System validates and updates `Reminder` + schedule
+4. Observers refresh dashboard / logs
+5. Confirmation shown
+
+### Alternative/Exception Flows
+- Recurring edit: ask this occurrence vs entire series
+- Already completed: reject further snooze
+- DB failure: retry message
+
+### Postconditions
+- Reminder state and schedule match user intent
+
+---
+
+## UC-07: View Analytics & Recommendations
+
+### Use Case ID
+UC-07
+
+### Use Case Name
+View Analytics and AI Recommendations
+
+### Related Feature(s)
+F11 — Behavioral Learning; F12 — Analytics Dashboard; F13 — AI Recommendations
+
+### Primary Actor
+User
+
+### Secondary Actors
+- System (LearningEngine, AnalyticsEngine)
+- LLM Service (for F13)
+
+### Goal
+Inspect sleep/completion stats and optionally accept AI setting suggestions.
+
+### Preconditions
+- User has some history (or empty-state messaging if not)
+
+### Trigger
+User opens Insights / Recommendations, or `riseup stats` / `riseup recommend`
+
+### Main Success Scenario
+1. User selects date range
+2. System returns charts/tables from `AnalyticsEngine`
+3. User requests recommendations
+4. `RecommendationService` + LLM produce validated suggestions
+5. User accepts one → `UserPreferences` updated
+
+### Alternative/Exception Flows
+- Insufficient data: no suggestions, explain why
+- LLM failure: show rule-based tips only
+- Invalid suggestion (e.g. disables all escalation): dropped
+
+### Postconditions
+- Stats viewed; accepted recommendations applied and logged
+
+---
+
+## UC-08: Manage Escalation Preferences & Emergency Contact
+
+### Use Case ID
+UC-08
+
+### Use Case Name
+Manage Escalation Preferences and Emergency Contact
+
+### Related Feature(s)
+F06 — Emergency Contact & Escalation Preferences
+
+### Primary Actor
+User
+
+### Secondary Actors
+- Emergency contact (consent recipient)
+- Twilio (test SMS/call)
+
+### Goal
+Configure enabled channels, quiet hours, and consenting emergency contact.
+
+### Preconditions
+- User authenticated
+
+### Trigger
+Settings → Escalation, or `riseup prefs` / `riseup contact`
+
+### Main Success Scenario
+1. User toggles channels and quiet hours
+2. User adds emergency contact
+3. System sends consent request; contact confirms
+4. Optional test message via ToolManager
+5. Preferences saved
+
+### Alternative/Exception Flows
+- Invalid phone: error
+- Consent not granted: contact excluded from F05
+- All channels off: warn that alarms will not escalate
+
+### Postconditions
+- `UserPreferences` / `EmergencyContact` persisted
+
+---
+
+## UC-09: View History & Decision Explanation
+
+### Use Case ID
+UC-09
+
+### Use Case Name
+View History and Decision Explanation
+
+### Related Feature(s)
+F14 — History & Decision Explanation
+
+### Primary Actor
+User
+
+### Secondary Actors
+- System (HistoryController)
+
+### Goal
+Browse past alarms/escalations/reminders and open “Why?” for AI decisions.
+
+### Preconditions
+- Events exist in logs
+
+### Trigger
+History page, or `riseup history` / `riseup escalation explain <id>`
+
+### Main Success Scenario
+1. User filters by type/date
+2. System lists events
+3. User opens an AI decision
+4. System shows reasoning, confidence, inputs, fallback flag
+
+### Alternative/Exception Flows
+- Not found: 404 message
+- Rule-based fallback decision: labelled clearly
+
+### Postconditions
+- User understands why an action was taken (explainability constraint)
+
+---
+
 ## Use Case Diagram
 
-```
-                                    ┌─────────────────┐
-                                    │      User       │
-                                    └────────┬────────┘
-                                             │
-                     ┌───────────────────────┼───────────────────────┐
-                     │                       │                       │
-                     ▼                       ▼                       ▼
-            ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
-            │  UC-01: Config   │   │  UC-04: Create   │   │  UC-02: Complete │
-            │  Alarm Settings  │   │  Task Reminder   │   │  Verification    │
-            └──────────────────┘   └──────────────────┘   └──────────────────┘
-                     │                       │                       │
-                     └───────────────────────┼───────────────────────┘
-                                             │
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  UC-03: AI       │
-                                    │  Escalation      │
-                                    └────────┬─────────┘
-                                             │
-                                             ▼
-                                    ┌──────────────────┐
-                                    │  UC-05: Send     │
-                                    │  Prioritized     │
-                                    │  Reminders       │
-                                    └──────────────────┘
+Actors: **User**, **System/Scheduler**, **LLM Service**, **Twilio**, **Alexa**, **Camera**, **Firebase**.
 
-┌─────────────────────────────────────────────────────────────────┐
-│  Secondary Actors                                               │
-├─────────────────────────────────────────────────────────────────┤
-│  • System (Alarm Scheduler, Task Scheduler)                     │
-│  • LLM (Claude - for AI reasoning, prioritization, escalation)  │
-│  • External Tools (Twilio for SMS/calls, Alexa SDK, etc.)       │
-│  • Database (Store alarms, tasks, user profiles, logs)          │
-│  • Device Services (Camera for object detection, microphone)    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+  User((User))
+  Sys((System/Scheduler))
+  LLM((LLM Service))
+  Twilio((Twilio))
+  Alexa((Alexa))
+  Cam((Camera))
+  Push((Firebase))
+
+  UC01[UC-01 Configure Alarm]
+  UC02[UC-02 Verify and Check-in]
+  UC03[UC-03 AI Escalation]
+  UC04[UC-04 Create Reminder]
+  UC05[UC-05 Send Prioritized Reminders]
+  UC06[UC-06 Manage Reminders]
+  UC07[UC-07 Analytics and Recommendations]
+  UC08[UC-08 Escalation Prefs and Contact]
+  UC09[UC-09 History and Explain]
+
+  User --> UC01
+  User --> UC04
+  User --> UC06
+  User --> UC07
+  User --> UC08
+  User --> UC09
+  Sys --> UC02
+  Sys --> UC03
+  Sys --> UC05
+  Cam --> UC02
+  Push --> UC02
+  Push --> UC05
+  LLM --> UC03
+  LLM --> UC04
+  LLM --> UC05
+  LLM --> UC07
+  Twilio --> UC03
+  Alexa --> UC03
+  Twilio --> UC08
+
+  UC01 -.->|leads to| UC02
+  UC02 -.->|may trigger| UC03
+  UC04 -.->|leads to| UC05
+  UC04 -.->|leads to| UC06
 ```
+
+**Note:** There is **no** UC-03 → UC-05 dependency. Escalation and reminder prioritization are separate flows that both may use the LLM.
+
+PNG: [`uml-diagrams/UseCaseDiagram.png`](./uml-diagrams/UseCaseDiagram.png).
 
 ---
 
 ## Use Case Dependencies
 
-- **UC-01** is prerequisite for **UC-02** (alarm must exist before it triggers)
-- **UC-02** triggers **UC-03** if user doesn't respond (alarm timeout → escalation)
-- **UC-02** triggers check-in, which if missed, triggers **UC-03**
-- **UC-04** is independent (users can create reminders anytime)
-- **UC-05** requires **UC-04** (reminders must exist before they're sent)
-- **UC-03** and **UC-05** both depend on LLM for AI-driven decisions
+- **UC-01** prerequisite for **UC-02**
+- **UC-02** may trigger **UC-03** (timeout / missed check-in)
+- **UC-04** prerequisite for **UC-05** and enables **UC-06**
+- **UC-08** configures channels used by **UC-03**
+- **UC-07** / **UC-09** read data produced by alarms, escalations, and reminders
+- **UC-03** and **UC-05** both may call the LLM; they do **not** call each other
 
 ---
 
 ## Summary Table
 
-| Use Case | Actor | Goal | Trigger | Key Decision Point |
-|----------|-------|------|---------|-------------------|
-| UC-01 | User | Set customized alarm | Click "New Alarm" | Verification task type, repeat pattern |
-| UC-02 | User | Complete verification | Alarm triggers | Task type success, check-in response |
-| UC-03 | System | Escalate intelligently | No task completion | AI decides escalation method |
-| UC-04 | User | Create task reminder | Click "New Reminder" | Priority, category, time |
-| UC-05 | System | Send prioritized reminders | Reminder time arrives | AI prioritizes if multiple reminders |
+| Use Case | Actor | Related Features | Trigger | Key decision |
+|----------|-------|------------------|---------|--------------|
+| UC-01 | User | F01 | New Alarm | Task type, schedule |
+| UC-02 | User/System | F02, F03 | Alarm time | Verify / check-in |
+| UC-03 | System | F04, F05 | Timeout | Agent chooses channel |
+| UC-04 | User | F07, F08 | New reminder / NL | Parse & confirm |
+| UC-05 | System | F09, F10 | Due time | Prioritize & nudge |
+| UC-06 | User | F08 | Edit/done/snooze | Series vs one |
+| UC-07 | User | F11–F13 | Insights | Accept recommendation |
+| UC-08 | User | F06 | Settings | Consent & channels |
+| UC-09 | User | F14 | History | Explain AI decision |

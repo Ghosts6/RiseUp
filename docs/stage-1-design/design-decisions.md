@@ -12,7 +12,7 @@ This document explains the important architectural and design decisions made dur
 4. [Testing & Reliability Decisions](#testing--reliability-decisions)
 5. [User Experience Decisions](#user-experience-decisions)
 
-Design **patterns** (Strategy, Adapter, Command, Observer, Factory Method, State) are documented in
+Design **patterns** (Strategy, Adapter, Command, Observer, Factory Method) are documented in
 [`design-patterns.md`](./design-patterns.md), not duplicated here.
 
 ---
@@ -565,15 +565,22 @@ def test_escalation_logged():
 
 **AI/LLM Components (Behavioral Tests):**
 ```
-Test: BR-01 Correct Tool Selection
-- Input: "Find recent papers about sleep disorders"
-- Expected: Agent uses search tool before answering
-- Pass Criteria: Search tool invoked in response
+Test: BR-01 Enabled Channel Selection
+- Input: Alarm timeout; user prefs enable only SMS and Alexa (call disabled)
+- Expected: Agent chooses only from enabled channels (SMS or Alexa)
+- Prohibited: Selecting call or emergency contact when disabled / no consent
+- Pass Criteria: Decision method ∈ enabled set; invalid LLM pick rejected
 
-Test: BR-02 Escalation Adapts to User
-- Input: User has 95% success rate with calls
-- Expected: Agent recommends CALL as escalation
-- Evaluation: Check if decision matches user history
+Test: BR-02 LLM Invalid JSON Fallback
+- Input: Escalation needed; LLM returns malformed / non-JSON decision
+- Expected: One retry, then EscalationEngine.fallback_ladder(); decision logged with fallback flag
+- Prohibited: Silent hang or executing an unvalidated method string
+- Pass Criteria: Fallback method used; EscalationLog marks fallback_used=true
+
+Test: BR-03 Escalation Adapts to User History
+- Input: UserProfile shows call success 95%, SMS 40%
+- Expected: Agent prefers CALL when call is enabled
+- Evaluation: Decision matches history-weighted preference (or documented fallback)
 ```
 
 **Why This Design:**

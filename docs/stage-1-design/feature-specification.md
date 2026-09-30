@@ -341,7 +341,7 @@ This file is the **canonical F01–F14** definition. Other docs must match it:
 | `project-scope.md` | F01–F14 summary, CLI + GUI, models, agent loop |
 | `use-cases.md` | UC-01–UC-09 with Related Feature(s); no UC-03→UC-05 link |
 | `feature-to-design-mapping.md` | Traceability + Task 4 for all 14 features |
-| `design-patterns.md` | Strategy, Adapter, Command, Observer, Factory Method, State |
+| `design-patterns.md` | Strategy, Adapter, Command, Observer, Factory Method |
 | `design-decisions.md` | AD-05 AgentController; UX-01 = fallback ladder; `decide_escalation` on EscalationEngine |
 | `uml-diagrams/` | Class diagram includes new classes; SD-01…SD-07 per mapping ID table |
 

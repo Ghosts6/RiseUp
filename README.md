@@ -20,6 +20,10 @@ RiseUp is an **intelligent alarm and task reminder system** powered by AI that h
 
 ## Key Features
 
+### 🖥️ Interfaces: GUI + CLI
+- **Web GUI:** React dashboard for alarms, tasks, insights, history, and preferences
+- **CLI:** `riseup` commands (e.g. `riseup alarm add`, `riseup remind "…"`, `riseup stats`) over the same FastAPI backend
+
 ### 🚨 Intelligent Alarm System
 - **Customizable Alarms:** Personalized sounds, vibration patterns, and intensity levels
 - **Verification Tasks:** Users must complete a challenge to cancel the alarm
@@ -39,8 +43,8 @@ RiseUp is an **intelligent alarm and task reminder system** powered by AI that h
 - **Learning:** System remembers which escalation methods work best for each user
 
 ### ✅ Smart Task Reminders
-- **Multiple Input Methods:** Create reminders via the app or voice agent
-  - Natural language: "Remind me to call mom tomorrow at 9am"
+- **Multiple Input Methods:** Create reminders via the app, CLI, or voice agent
+  - Natural language: "Remind me to call mom tomorrow at 9am" (`riseup remind "…"`)
   - App interface: Set time, priority, category
 - **AI Prioritization:** Smart reminder scheduling based on urgency and user behavior
 - **Adaptive Timing:** Learn when users are most likely to act on reminders
@@ -64,52 +68,62 @@ RiseUp is an **intelligent alarm and task reminder system** powered by AI that h
 
 ```mermaid
 graph TB
-    subgraph Client["🖥️ Client Layer"]
-        WEB["React + TypeScript<br/>Vite"]
-        MOBILE["Responsive UI<br/>Tailwind CSS"]
+    subgraph Client["Client Layer"]
+        WEB["React + TypeScript GUI<br/>Vite"]
+        CLI["CLI riseup<br/>Typer / Command pattern"]
     end
 
-    subgraph Backend["⚙️ Backend Layer"]
+    subgraph Backend["Backend Layer"]
         API["FastAPI<br/>Python 3.10+"]
+        AGENT["AgentController<br/>observe decide act"]
         ALARM["Alarm System<br/>APScheduler"]
-        ESCALATION["Escalation Engine<br/>AI Logic"]
+        ESCALATION["Escalation Engine"]
         TASK["Task Manager<br/>Prioritization"]
         USER["User Profile<br/>Learning Engine"]
     end
 
-    subgraph AI["🤖 AI & LLM Layer"]
-        CLAUDE["Claude API<br/>Reasoning & Planning"]
-        PARSER["NLP Parser<br/>Voice Commands"]
+    subgraph AI["AI and LLM Layer"]
+        LLM["LLMClient<br/>LLMProvider"]
+        CLAUDE["Claude<br/>claude-sonnet-4-5"]
+        OPENAI["OpenAI<br/>gpt-4o"]
+        PARSER["NLCommandParser"]
     end
 
-    subgraph External["🔗 External Integrations"]
-        TWILIO["📞 Twilio<br/>Calls & SMS"]
-        ALEXA["🔊 Amazon Alexa<br/>Smart Alerts"]
-        CAMERA["📷 Camera API<br/>Object Detection"]
+    subgraph External["External Integrations"]
+        TWILIO["Twilio<br/>Calls and SMS"]
+        ALEXA["Amazon Alexa"]
+        CAMERA["Camera API"]
+        FIREBASE["Firebase Push"]
     end
 
-    subgraph Data["💾 Data Layer"]
-        DB["PostgreSQL<br/>User Data & Logs"]
-        CACHE["Redis<br/>Caching & Tasks"]
+    subgraph Data["Data Layer"]
+        DB["PostgreSQL"]
+        CACHE["Redis"]
     end
 
-    Client -->|HTTP/WebSocket| API
+    WEB -->|HTTP/WebSocket| API
+    CLI -->|HTTP| API
+    API --> AGENT
     API --> ALARM
     API --> ESCALATION
     API --> TASK
     API --> USER
-    
-    ESCALATION --> CLAUDE
-    TASK --> CLAUDE
-    USER --> CLAUDE
     API --> PARSER
-    PARSER --> CLAUDE
-    
-    ALARM --> TWILIO
+
+    AGENT --> ESCALATION
+    AGENT --> LLM
+    ESCALATION --> LLM
+    TASK --> LLM
+    PARSER --> LLM
+    LLM --> CLAUDE
+    LLM --> OPENAI
+
     ESCALATION --> TWILIO
     ESCALATION --> ALEXA
+    ESCALATION --> FIREBASE
     ALARM --> CAMERA
-    
+    ALARM --> TWILIO
+
     API --> DB
     API --> CACHE
     USER --> DB
@@ -160,6 +174,7 @@ graph TB
 - `celery` — Task Queue
 - `apscheduler` — Task Scheduling
 - `httpx` — Async HTTP Client
+- `typer` (or `argparse`) — CLI (`riseup` commands)
 - `python-dotenv` — Environment Variables
 - `pytest` — Testing
 
@@ -397,7 +412,7 @@ traceability, and UML diagrams required for the Stage 1 design.
 | [`feature-specification.md`](docs/stage-1-design/feature-specification.md) | **Canonical** 14 features (8 fields each) + CLI design |
 | [`use-cases.md`](docs/stage-1-design/use-cases.md) | UC-01–UC-09 with Related Feature(s) |
 | [`design-decisions.md`](docs/stage-1-design/design-decisions.md) | Architecture / AI / UX decisions (incl. AgentController loop) |
-| [`design-patterns.md`](docs/stage-1-design/design-patterns.md) | Six patterns with problem, classes, roles, rationale |
+| [`design-patterns.md`](docs/stage-1-design/design-patterns.md) | Five patterns with problem, classes, roles, rationale |
 | [`feature-to-design-mapping.md`](docs/stage-1-design/feature-to-design-mapping.md) | Traceability table + Task 4 for all 14 features |
 
 #### Stage 1 UML Diagrams

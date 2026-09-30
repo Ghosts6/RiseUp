@@ -1,8 +1,9 @@
 # RiseUp - Design Patterns
 
 Stage 1 requires at least **five** design patterns, each solving a real design problem.
-RiseUp uses **six**. Patterns claimed elsewhere (Delegation, Repository as a “pattern credit,”
-EscalationEngine-as-Facade) are **not** counted here.
+RiseUp uses **five**. Patterns claimed elsewhere (Delegation, Repository as a “pattern credit,”
+EscalationEngine-as-Facade, State) are **not** counted here — State is deferred until
+`AlarmState` subclasses appear on the class diagram.
 
 **Canonical patterns**
 
@@ -13,7 +14,6 @@ EscalationEngine-as-Facade) are **not** counted here.
 | 3 | Command | CLI actions (`riseup …`) |
 | 4 | Observer | Alarm / reminder / check-in status changes → UI & loggers |
 | 5 | Factory Method | `VerificationTaskFactory`, `ReminderFactory` |
-| 6 | State | Alarm lifecycle (`Scheduled` → `Ringing` → `Verified` → `CheckedIn` / `Escalating` → `Resolved`) |
 
 ---
 
@@ -145,36 +145,6 @@ defaults and harder testing of creation rules.
 
 ---
 
-## 6. State
-
-### Design problem
-An alarm’s allowed operations change over time: you can edit a scheduled alarm, but not
-dismiss a ringing one without verification; you cannot escalate a resolved alarm.
-
-### Participating classes and roles
-
-| Class | Role |
-|-------|------|
-| `Alarm` | Context holding current `AlarmState` |
-| `AlarmState` | State interface (`on_trigger`, `on_verify`, `on_timeout`, `on_checkin`) |
-| `ScheduledState`, `RingingState`, `VerifiedState`, `EscalatingState`, `ResolvedState` | Concrete states |
-
-### Lifecycle
-```
-Scheduled --trigger--> Ringing --verify--> Verified --check-in ok--> Resolved
-                          |                    |
-                          +--timeout--> Escalating --confirm--> Resolved
-```
-
-### Why appropriate
-Illegal transitions are rejected inside states; `Alarm` methods stay thin and readable.
-
-### Without the pattern
-Boolean flags (`is_ringing`, `is_verified`, …) and nested conditionals; easy to allow
-illegal edits or double-escalation.
-
----
-
 ## Patterns explicitly not claimed
 
 | Name | Why not claimed |
@@ -182,5 +152,6 @@ illegal edits or double-escalation.
 | Delegation | Useful technique inside `ToolManager`, but not used as a Stage 1 pattern credit |
 | Repository | Repositories exist for persistence; not counted as one of the five course patterns |
 | Facade on `EscalationEngine` | `EscalationEngine` is an **orchestrator** used by `AgentController`, not a thin Facade over a subsystem |
+| State | Alarm lifecycle is real, but the class diagram does not yet show `AlarmState` subclasses; do not claim State until those classes are on the diagram |
 
 `APIClient` may still *act* as a small Facade for HTTP/auth; it is not needed for the five-pattern minimum.

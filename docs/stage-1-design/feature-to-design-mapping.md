@@ -25,8 +25,8 @@ F06 and F12 are deterministic CRUD/query flows; their collaboration is described
 
 | Feature | Description | Type | Related UC | Classes | Key Methods | Sequence | Pattern(s) |
 |---------|-------------|------|------------|---------|-------------|----------|------------|
-| F01 | Alarm Management | Deterministic | UC-01 | `AlarmController`, `Alarm`, `AlarmRepository`, `AlarmScheduler`, `UserPreferences` | `create_alarm()`, `validate()`, `save()`, `schedule_alarm()` | SD-01 | State (lifecycle starts `Scheduled`) |
-| F02 | Verification Challenge | Deterministic | UC-02 | `VerificationTaskFactory`, `VerificationTask`, `ObjectDetectionTask`, `MathTask`, `TriviaTask`, `CustomTask`, `Alarm` | `create()`, `validate()`, `get_task_prompt()`, `on_verify()` | SD-01 | Strategy, Factory Method, State |
+| F01 | Alarm Management | Deterministic | UC-01 | `AlarmController`, `Alarm`, `AlarmRepository`, `AlarmScheduler`, `UserPreferences` | `create_alarm()`, `validate()`, `save()`, `schedule_alarm()` | SD-01 | — |
+| F02 | Verification Challenge | Deterministic | UC-02 | `VerificationTaskFactory`, `VerificationTask`, `ObjectDetectionTask`, `MathTask`, `TriviaTask`, `CustomTask`, `Alarm` | `create()`, `validate()`, `get_task_prompt()`, `on_verify()` | SD-01 | Strategy, Factory Method |
 | F03 | Post-Wake Check-in | Deterministic | UC-02 | `CheckIn`, `ToolManager`, `FirebaseClient`, `Alarm` | `schedule()`, `send()`, `record_response()`, `timeout_handler()` | SD-01 | Observer, Adapter |
 | F04 | AI Escalation Decision | AI/Hybrid | UC-03 | `AgentController`, `EscalationEngine`, `PromptBuilder`, `LLMClient`, `LLMProvider`, `ResponseParser`, `UserProfile`, `EscalationLog` | `run()`, `decide_escalation()`, `build_escalation_prompt()`, `send_request()`, `parse_decision()` | SD-02 | Strategy (provider), Adapter |
 | F05 | Multi-Channel Escalation Execution | Deterministic | UC-03 | `ToolManager`, `Tool`, `TwilioClient`, `AlexaClient`, `EscalationLog`, `UserProfile` | `execute_escalation()`, `make_call()`, `send_sms()`, `send_alert()`, `record_escalation()` | SD-02 | Adapter, Observer |
@@ -49,13 +49,13 @@ Dropped from Stage 1 credit: “Web Application Interface,” bare “Alarm Sche
 ### F01 — Alarm Management
 **UC:** UC-01 · **SD:** SD-01  
 `AlarmController` accepts GUI/CLI input → `Alarm.validate()` → `AlarmRepository.save()` →
-`AlarmScheduler.schedule_alarm()` places the job; alarm enters `ScheduledState`.
+`AlarmScheduler.schedule_alarm()` places the job; alarm is stored as active/scheduled.
 
 ### F02 — Verification Challenge
 **UC:** UC-02 · **SD:** SD-01  
-On trigger, `Alarm` moves to `RingingState`. `VerificationTaskFactory.create()` returns a
+On trigger, the alarm rings. `VerificationTaskFactory.create()` returns a
 Strategy task. GUI (or CLI for non-photo) collects a response; `validate()` succeeds →
-`VerifiedState` and stop sound; failures retry; camera failure → factory emits `MathTask`.
+alarm stops and check-in is scheduled; failures retry; camera failure → factory emits `MathTask`.
 
 ### F03 — Post-Wake Check-in
 **UC:** UC-02 · **SD:** SD-01  

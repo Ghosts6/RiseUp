@@ -404,6 +404,12 @@ The complete Stage 1 design documentation is available in:
 It contains the project scope, use cases, design decisions, feature-to-design
 traceability, and UML diagrams required for the Stage 1 design.
 
+#### Stage 1 Report
+
+All Stage 1 documents and UML diagrams combined into a single report:
+
+- 📄 **[Stage 1 Report (PDF)](docs/stage-1-design/Stage-1-Report.pdf)**
+
 #### Stage 1 Documentation
 
 | Document | Description |

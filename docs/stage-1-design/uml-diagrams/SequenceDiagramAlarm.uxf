@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1230</w>
+      <h>1904</h>
+    </coordinates>
+    <panel_attributes>title=SD-01 Alarm / Verify / Check-in
+obj=User~u ACTOR
+obj=Frontend~f
+obj=AlarmScheduler~s
+obj=AlarmSystem~as
+obj=VerificationTask~vt
+obj=CheckInManager~cm
+obj=Database~db
+text=u:[sleeping]
+s-&gt;&gt;&gt;s + :check time
+tick=
+s-&gt;&gt;&gt;as : trigger_alarm(alarm_id)
+as-&gt;&gt;&gt;db : get_alarm_details()
+db.&gt;as : alarm_config
+as-&gt;&gt;&gt;f : play_alarm_sound()
+as-&gt;&gt;&gt;f : activate_vibration()
+as-&gt;&gt;&gt;vt : generate_task()
+vt.&gt;f : display_task()
+f-&gt;&gt;&gt;u : "Alarm triggered!"
+u-&gt;&gt;&gt;f : attempt_verification()
+combinedFragment=alt~a1 u db
+u:[task valid]
+f-&gt;&gt;&gt;vt : validate_task()
+vt.&gt;f : valid
+f-&gt;&gt;&gt;as : stop_alarm()
+as-&gt;&gt;&gt;db : log_completion(timestamp)
+db.&gt;as : logged
+f-&gt;&gt;&gt;u : "Task complete! Rest well."
+as-&gt;&gt;&gt;cm : schedule_checkin(5-10 min)
+cm-&gt;&gt;&gt;cm + :wait
+tick=
+cm-&gt;&gt;&gt;f : send_checkin()
+f-&gt;&gt;&gt;u : "Are you still awake?"
+combinedFragment=alt~a2 u db
+u:[user responds]
+u-&gt;&gt;&gt;f : "Yes" (tap confirm)
+f-&gt;&gt;&gt;cm : record_response()
+cm-&gt;&gt;&gt;db : log_checkin(success)
+db.&gt;cm : logged
+..=a2
+u:[no response]
+cm-&gt;&gt;&gt;cm + :timeout
+tick=
+cm-&gt;&gt;&gt;as : trigger_escalation()
+text=as:continues in SD-02
+--=a2
+..=a1
+u:[task invalid]
+f-&gt;&gt;&gt;vt : validate_task()
+vt.&gt;f : invalid
+f-&gt;&gt;&gt;u : "Try again"
+u-&gt;&gt;&gt;f : retry_verification()
+text=f:retry loop until valid
+--=a1</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

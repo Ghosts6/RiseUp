@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1230</w>
+      <h>1778</h>
+    </coordinates>
+    <panel_attributes>title=SD-03 Reminders and Prioritization
+obj=User~u ACTOR
+obj=Frontend~f
+obj=ReminderService~rs
+obj=LLMClient~llm
+obj=TaskPrioritizer~tp
+obj=ReminderScheduler~sch
+obj=Database~db
+u-&gt;&gt;&gt;f : click "New Reminder"
+f-&gt;&gt;&gt;f + :show form
+tick=
+u-&gt;&gt;&gt;f : enter task details
+text=f:Title: "Call Mom"\nTime: tomorrow 9 AM\nPriority: High
+u-&gt;&gt;&gt;f : save reminder
+f-&gt;&gt;&gt;rs : create_reminder(data)
+rs-&gt;&gt;&gt;db : validate_task_data()
+db.&gt;rs : valid
+rs-&gt;&gt;&gt;db : insert_reminder()
+db.&gt;rs : reminder_id
+rs-&gt;&gt;&gt;sch : schedule_reminder(reminder_id)
+sch-&gt;&gt;&gt;sch + :set trigger
+tick=
+f-&gt;&gt;&gt;u : "Reminder set!"
+text=sch:[next day, 9 AM]
+sch-&gt;&gt;&gt;sch + :time reached
+tick=
+sch-&gt;&gt;&gt;tp : need_priority_decision()
+text=tp:other reminders due\nat the same time?
+combinedFragment=alt~a1 llm sch
+llm:[multiple reminders due]
+tp-&gt;&gt;&gt;llm : prioritize_reminders(list)
+text=llm:priority levels, behaviour,\ncompletion rates, time patterns
+llm.&gt;tp : priority_order
+tp.&gt;sch : ordered_reminders
+..=a1
+llm:[single reminder]
+sch-&gt;&gt;&gt;sch + :send primary
+tick=
+--=a1
+sch-&gt;&gt;&gt;f : send_notification()
+f-&gt;&gt;&gt;u : "Call Mom (High Priority)"
+u-&gt;&gt;&gt;f : tap to complete
+f-&gt;&gt;&gt;rs : mark_complete()
+rs-&gt;&gt;&gt;db : update_status(completed)
+rs-&gt;&gt;&gt;db : log_completion(timestamp)
+text=db:completion time,\nresponse time, category
+db.&gt;rs : logged
+rs-&gt;&gt;&gt;tp : update_user_behavior()
+text=tp:update completion rate\nfor "personal" category</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

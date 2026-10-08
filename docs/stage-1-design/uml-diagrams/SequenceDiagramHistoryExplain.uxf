@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1340</w>
+      <h>980</h>
+    </coordinates>
+    <panel_attributes>title=SD-07 History and Decision Explanation
+obj=User~u ACTOR
+obj=HistoryGUI or CLI~ui
+obj=HistoryController~hc
+obj=EscalationLog~log
+obj=ReminderLog~rlog
+u-&gt;&gt;&gt;ui : history --type escalation --since 7d
+ui-&gt;&gt;&gt;hc : list(filter)
+hc-&gt;&gt;&gt;log : query(filter)
+log.&gt;hc : events
+hc.&gt;ui : list
+ui.&gt;u : show rows
+u-&gt;&gt;&gt;ui : escalation explain 88
+ui-&gt;&gt;&gt;hc : explain(88)
+combinedFragment=alt~a1 u rlog
+u:[found AI decision]
+hc-&gt;&gt;&gt;log : get(88)
+log.&gt;hc : method, reasoning, confidence, fallback_flag
+hc.&gt;ui : explanation
+ui.&gt;u : "Why?" details
+..=a1
+u:[not found]
+hc.&gt;ui : 404
+ui.&gt;u : entry not found
+..=a1
+u:[rule-based fallback entry]
+hc.&gt;ui : labelled fallback decision
+ui.&gt;u : "rule-based fallback, LLM unavailable"
+--=a1</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

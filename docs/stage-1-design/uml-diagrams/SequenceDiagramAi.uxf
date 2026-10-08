@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1400</w>
+      <h>1316</h>
+    </coordinates>
+    <panel_attributes>title=SD-02 Agent Escalation Loop
+obj=Alarm~al
+obj=AgentController~ag
+obj=EscalationEngine~en
+obj=UserProfile /\nEscalationLog~mem
+obj=LLMClient~llm
+obj=LLMProvider~pr
+obj=ToolManager~tm
+obj=TwilioClient~tw
+al-&gt;&gt;&gt;ag : run("escalate", alarm_id)
+ag-&gt;&gt;&gt;mem : observe()
+mem.&gt;ag : profile + history
+ag-&gt;&gt;&gt;en : decide_escalation()
+en-&gt;&gt;&gt;llm : send_request(prompt)
+combinedFragment=alt~a1 ag tw
+ag:[LLM OK]
+llm-&gt;&gt;&gt;pr : complete()
+pr.&gt;llm : decision JSON
+llm.&gt;en : raw response
+en.&gt;ag : method: call
+ag-&gt;&gt;&gt;tm : execute_escalation(call)
+tm-&gt;&gt;&gt;tw : make_call()
+combinedFragment=alt~a2 ag tw
+ag:[call OK]
+tw.&gt;tm : confirmed
+tm.&gt;ag : success
+ag-&gt;&gt;&gt;mem : record + update_learning_data()
+..=a2
+ag:[call fails]
+tw.&gt;tm : failure
+tm.&gt;ag : fail
+ag-&gt;&gt;&gt;en : re-decide (next fallback)
+en.&gt;ag : method: sms
+ag-&gt;&gt;&gt;tm : execute_escalation(sms)
+--=a2
+..=a1
+ag:[LLM fail]
+llm.&gt;en : error
+en.&gt;ag : fallback_ladder() first method
+ag-&gt;&gt;&gt;tm : execute_escalation(fallback)
+--=a1</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

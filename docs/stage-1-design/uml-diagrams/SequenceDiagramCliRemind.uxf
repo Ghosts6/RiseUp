@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1855</w>
+      <h>1358</h>
+    </coordinates>
+    <panel_attributes>title=SD-05 CLI / Natural-Language Remind
+obj=User~u ACTOR
+obj=CLIApp~cli
+obj=RemindCommand~cmd
+obj=APIClient~api
+obj=NLCommandParser~nlp
+obj=PromptBuilder~pb
+obj=LLMClient~llm
+obj=LLMProvider~pr
+obj=ResponseParser~rp
+obj=ReminderFactory~rf
+obj=ReminderScheduler~sch
+u-&gt;&gt;&gt;cli : riseup remind "call mom tomorrow 9am"
+cli-&gt;&gt;&gt;cmd : execute(args)
+cmd-&gt;&gt;&gt;api : POST reminders/parse
+api-&gt;&gt;&gt;nlp : parse(text)
+nlp-&gt;&gt;&gt;pb : build_parse_prompt()
+nlp-&gt;&gt;&gt;llm : send_request(prompt)
+llm-&gt;&gt;&gt;pr : complete(prompt)
+combinedFragment=alt~a1 u sch
+u:[LLM OK]
+pr.&gt;llm : JSON text
+llm.&gt;nlp : raw
+nlp-&gt;&gt;&gt;rp : parse_reminder()
+rp.&gt;nlp : draft Reminder fields
+nlp.&gt;api : draft
+api.&gt;cmd : draft
+cmd.&gt;u : show draft, confirm?
+u-&gt;&gt;&gt;cmd : yes
+cmd-&gt;&gt;&gt;api : POST reminders
+api-&gt;&gt;&gt;rf : create(draft)
+rf-&gt;&gt;&gt;sch : schedule_reminder()
+sch.&gt;api : id
+api.&gt;cmd : Reminder #14
+cmd.&gt;u : scheduled
+..=a1
+u:[LLM fail or bad JSON]
+pr.&gt;llm : error
+llm.&gt;nlp : ParseError
+nlp.&gt;api : 422
+api.&gt;cmd : error + hint
+cmd.&gt;u : use riseup task add (title, due)
+--=a1</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

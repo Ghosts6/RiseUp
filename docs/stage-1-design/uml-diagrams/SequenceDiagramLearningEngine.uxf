@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1190</w>
+      <h>812</h>
+    </coordinates>
+    <panel_attributes>title=SD-04 Behavioral Learning
+obj=Event Log~ev
+obj=LearningEngine~le
+obj=UserProfile~up
+obj=AnalyticsEngine~ae
+obj=Database~db
+text=ev:[alarm completion logged]
+ev-&gt;&gt;&gt;le : new_behavior_event(alarm_completed)
+text=ev:[escalation logged]
+ev-&gt;&gt;&gt;le : new_behavior_event(escalation_used)
+text=ev:[reminder completed]
+ev-&gt;&gt;&gt;le : new_behavior_event(reminder_completed)
+le-&gt;&gt;&gt;db : get_user_history()
+db.&gt;le : history_data
+le-&gt;&gt;&gt;ae : analyze_patterns()
+text=ae:sleep quality, best wake-up times,\nescalation effectiveness,\ntask completion by category
+ae.&gt;le : analysis_results
+le-&gt;&gt;&gt;up : update_profile()
+text=up:escalation effectiveness, task patterns,\nsleep patterns, recommendations
+up-&gt;&gt;&gt;db : save_updated_profile()
+db.&gt;up : saved
+text=up:next escalation uses the updated data</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

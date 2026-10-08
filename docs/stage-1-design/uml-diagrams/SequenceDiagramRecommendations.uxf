@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<diagram program="umlet" version="15.1">
+  <help_text/>
+  <zoom_level>10</zoom_level>
+  <element>
+    <id>UMLSequenceAllInOne</id>
+    <coordinates>
+      <x>0</x>
+      <y>0</y>
+      <w>1790</w>
+      <h>1106</h>
+    </coordinates>
+    <panel_attributes>title=SD-06 AI Recommendations
+obj=User~u ACTOR
+obj=InsightsGUI~gui
+obj=AnalyticsController~ctl
+obj=RecommendationService~rec
+obj=AgentController~ag
+obj=PromptBuilder~pb
+obj=LLMClient~llm
+obj=LLMProvider~pr
+obj=ResponseParser~rp
+obj=UserPreferences~pref
+u-&gt;&gt;&gt;gui : open Recommendations
+gui-&gt;&gt;&gt;ctl : get_recommendations()
+ctl-&gt;&gt;&gt;rec : generate(user_id)
+rec-&gt;&gt;&gt;ag : run("recommend", profile)
+ag-&gt;&gt;&gt;pb : build_insight_prompt()
+ag-&gt;&gt;&gt;llm : send_request()
+llm-&gt;&gt;&gt;pr : complete()
+combinedFragment=alt~a1 u pref
+u:[LLM OK and valid suggestions]
+pr.&gt;llm : JSON
+llm.&gt;ag : raw
+ag-&gt;&gt;&gt;rp : parse_recommendations()
+rp.&gt;rec : up to 5 validated tips
+rec.&gt;gui : suggestions
+gui.&gt;u : show Accept / Dismiss
+u-&gt;&gt;&gt;gui : accept #2
+gui-&gt;&gt;&gt;pref : update(setting)
+pref.&gt;gui : saved
+..=a1
+u:[LLM fail or unsafe suggestion]
+pr.&gt;llm : error or invalid
+ag.&gt;rec : fallback rule tips or empty
+rec.&gt;gui : labelled fallback or insufficient data
+gui.&gt;u : message
+--=a1</panel_attributes>
+    <additional_attributes/>
+  </element>
+</diagram>

@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --brand-50: 255 244 237;
+  --brand-100: 255 226 209;
+  --brand-200: 255 196 163;
+  --brand-400: 255 138 76;
+  --brand-500: 255 107 53;
+  --brand-600: 230 84 32;
+  --brand-700: 186 62 18;
+  --ink: 15 23 41;
+  --ink-soft: 51 65 85;
+  --ink-muted: 100 116 139;
+  --surface: 248 250 252;
+  --surface-raised: 255 255 255;
+  --surface-sunk: 241 245 249;
+  --line: 226 232 240;
+  --chart-grid: 226 232 240;
+  --chart-accent: 255 107 53;
+  --chart-ok: 16 185 129;
+  --chart-bad: 239 68 68;
+  --chart-mute: 148 163 184;
+}
+
+.dark {
+  color-scheme: dark;
+  --brand-50: 61 28 16;
+  --brand-100: 84 36 18;
+  --brand-200: 140 56 24;
+  --brand-400: 255 150 96;
+  --brand-500: 255 122 69;
+  --brand-600: 255 107 53;
+  --brand-700: 255 180 140;
+  --ink: 241 245 249;
+  --ink-soft: 203 213 225;
+  --ink-muted: 148 163 184;
+  --surface: 11 18 32;
+  --surface-raised: 18 27 45;
+  --surface-sunk: 15 23 42;
+  --line: 38 50 72;
+  --chart-grid: 38 50 72;
+  --chart-accent: 255 122 69;
+  --chart-ok: 52 211 153;
+  --chart-bad: 248 113 113;
+  --chart-mute: 100 116 139;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply min-h-dvh bg-surface font-sans text-ink;
+    background-image:
+      radial-gradient(1200px 600px at 10% -10%, rgb(var(--brand-500) / 0.12), transparent 55%),
+      radial-gradient(900px 500px at 95% 0%, rgb(14 165 233 / 0.08), transparent 50%),
+      linear-gradient(180deg, rgb(var(--surface-raised) / 0.55), transparent 280px);
+    background-attachment: fixed;
+  }
+
+  html.dark body {
+    background-image:
+      radial-gradient(1000px 500px at 0% -5%, rgb(var(--brand-500) / 0.16), transparent 50%),
+      radial-gradient(800px 420px at 100% 0%, rgb(14 165 233 / 0.1), transparent 45%),
+      linear-gradient(180deg, rgb(18 27 45 / 0.9), transparent 260px);
+  }
+
+  ::selection {
+    background: rgb(var(--brand-500) / 0.28);
+  }
+
+  input[type="time"],
+  input[type="datetime-local"],
+  input[type="date"] {
+    color-scheme: inherit;
+  }
+}
+
+@layer components {
+  .page-title {
+    @apply font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl;
+  }
+
+  .page-sub {
+    @apply mt-1 text-sm text-ink-muted;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-line bg-surface-raised/90 p-4 shadow-soft backdrop-blur-sm sm:p-5;
+  }
+
+  .row-divider > * + * {
+    @apply border-t border-line;
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-top {
+    padding-top: max(0px, env(safe-area-inset-top));
+  }
+}

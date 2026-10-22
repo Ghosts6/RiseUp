@@ -7,11 +7,84 @@ on:
     branches: [ main, develop ]
 
 jobs:
-  build:
+  backend:
     runs-on: ubuntu-latest
-
+    defaults:
+      run:
+        working-directory: backend
+    strategy:
+      matrix:
+        python-version: [ "3.11", "3.12" ]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Placeholder - CI Pipeline
-        run: echo "CI Pipeline will be configured here"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Lint (flake8 + black)
+        run: |
+          flake8 riseup riseup_cli tests app.py
+          black --check riseup riseup_cli tests
+
+      - name: Type check (mypy)
+        run: mypy riseup riseup_cli
+
+      - name: Migrations match models
+        env:
+          DATABASE_URL: sqlite:///./ci.db
+        run: |
+          alembic upgrade head
+          alembic check
+
+      - name: Tests
+        run: pytest --cov=riseup --cov=riseup_cli --cov-report=term-missing
+
+  backend-postgres:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: riseup
+          POSTGRES_PASSWORD: riseup
+          POSTGRES_DB: riseup
+        ports: [ "5432:5432" ]
+        options: >-
+          --health-cmd "pg_isready -U riseup" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://riseup:riseup@localhost:5432/riseup
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: pip install -e ".[postgres]"
+      - name: Apply migrations on Postgres
+        run: |
+          alembic upgrade head
+          alembic check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Type check and build
+        run: npm run build

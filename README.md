@@ -152,10 +152,10 @@ graph TB
 
 **Key Libraries:**
 - `react-router-dom` — Routing
-- `zustand` or `redux` — State Management
+- `zustand` — State Management
 - `react-hook-form` — Form Handling
 - `zod` — Type Validation
-- `jest` & `@testing-library/react` — Testing
+- `recharts` — Insights charts
 
 ### ⚙️ Backend
 
@@ -165,16 +165,15 @@ graph TB
 | ![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat&logo=fastapi&logoColor=white) | Web Framework | 0.100+ |
 | ![PostgreSQL](https://img.shields.io/badge/-PostgreSQL-336791?style=flat&logo=postgresql&logoColor=white) | Database | 12+ |
 | ![SQLAlchemy](https://img.shields.io/badge/-SQLAlchemy-BA2131?style=flat&logo=sqlalchemy&logoColor=white) | ORM | 2.0+ |
-| ![Redis](https://img.shields.io/badge/-Redis-DC382D?style=flat&logo=redis&logoColor=white) | Caching & Queue | 7.0+ |
+| ![Redis](https://img.shields.io/badge/-Redis-DC382D?style=flat&logo=redis&logoColor=white) | Optional cache | 7.0+ |
 
 **Key Libraries:**
 - `uvicorn` — ASGI Server
 - `pydantic` — Data Validation
 - `alembic` — Database Migrations
-- `celery` — Task Queue
-- `apscheduler` — Task Scheduling
-- `httpx` — Async HTTP Client
-- `typer` (or `argparse`) — CLI (`riseup` commands)
+- `apscheduler` — Alarm, check-in, escalation and reminder jobs (in-process; no Celery needed)
+- `httpx` — HTTP client for Twilio / Alexa / Firebase / LLM REST APIs
+- `typer` — CLI (`riseup` commands)
 - `python-dotenv` — Environment Variables
 - `pytest` — Testing
 
@@ -205,16 +204,16 @@ Both providers implement `LLMProvider` (Strategy); `LLMClient` selects the confi
 | Service | Purpose | Integration |
 |---------|---------|-------------|
 | ![Twilio](https://img.shields.io/badge/-Twilio-F22F46?style=flat&logo=twilio&logoColor=white) | SMS & Phone Calls | REST API |
-| ![Amazon Alexa](https://img.shields.io/badge/-Amazon%20Alexa-FF9900?style=flat&logo=amazon-alexa&logoColor=white) | Voice Alerts & Commands | Alexa SDK |
+| ![Amazon Alexa](https://img.shields.io/badge/-Amazon%20Alexa-FF9900?style=flat&logo=amazon-alexa&logoColor=white) | Voice / Notify-Me alerts | REST API |
 | ![Firebase](https://img.shields.io/badge/-Firebase-FFCA28?style=flat&logo=firebase&logoColor=white) | Push Notifications | Cloud Messaging |
 
 ### 🧪 Testing & Quality
 
 | Tool | Purpose |
 |------|---------|
-| ![Jest](https://img.shields.io/badge/-Jest-C21325?style=flat&logo=jest&logoColor=white) | Frontend Unit Tests |
-| ![Testing Library](https://img.shields.io/badge/-Testing%20Library-E33332?style=flat&logo=testing-library&logoColor=white) | React Component Tests |
-| ![pytest](https://img.shields.io/badge/-pytest-0A9EDC?style=flat&logo=pytest&logoColor=white) | Backend Unit Tests |
+| ![pytest](https://img.shields.io/badge/-pytest-0A9EDC?style=flat&logo=pytest&logoColor=white) | Backend unit, API, agent and CLI tests |
+| ![TypeScript](https://img.shields.io/badge/-tsc-3178C6?style=flat&logo=typescript&logoColor=white) | Frontend type checking |
+| ![Jest](https://img.shields.io/badge/-Jest-C21325?style=flat&logo=jest&logoColor=white) | Frontend unit tests (planned, stage 3) |
 | ![Coverage.py](https://img.shields.io/badge/-Coverage.py-85C1E2?style=flat&logo=python&logoColor=white) | Code Coverage Analysis |
 
 ### 🚀 CI/CD & Deployment
@@ -234,48 +233,42 @@ graph LR
     PUSH["📤 Push to GitHub"] --> TRIGGER["⚡ Trigger Workflow"]
     
     TRIGGER --> CHECKOUT["🔄 Checkout Code"]
-    CHECKOUT --> LINT["🔍 Lint Code"]
-    
-    LINT --> BACKEND["Backend Pipeline"]
-    LINT --> FRONTEND["Frontend Pipeline"]
-    
-    subgraph Backend["⚙️ Backend Checks"]
+
+    CHECKOUT --> PY_DEPS
+    CHECKOUT --> PG_DEPS
+    CHECKOUT --> JS_DEPS
+
+    subgraph Backend["⚙️ Backend (Python 3.11 + 3.12)"]
         PY_DEPS["📦 Install Dependencies"]
-        PY_LINT["🔍 Black/Flake8 Lint"]
+        PY_LINT["🔍 Flake8 + Black"]
         PY_TYPE["📝 mypy Type Check"]
-        PY_TEST["🧪 pytest Unit Tests"]
-        PY_COV["📊 Coverage Report"]
+        PY_MIG["🗄️ Alembic upgrade + check"]
+        PY_TEST["🧪 pytest + Coverage"]
     end
-    
-    subgraph Frontend["🖥️ Frontend Checks"]
-        JS_DEPS["📦 Install Dependencies"]
-        JS_LINT["🔍 ESLint/Prettier"]
-        JS_TEST["🧪 Jest Unit Tests"]
-        JS_BUILD["🔨 npm build"]
+
+    subgraph Postgres["🐘 Backend on PostgreSQL"]
+        PG_DEPS["📦 Install Dependencies"]
+        PG_MIG["🗄️ Migrations on Postgres 16"]
     end
-    
-    PY_DEPS --> PY_LINT
-    PY_LINT --> PY_TYPE
-    PY_TYPE --> PY_TEST
-    PY_TEST --> PY_COV
-    
-    JS_DEPS --> JS_LINT
-    JS_LINT --> JS_TEST
-    JS_TEST --> JS_BUILD
-    
-    PY_COV --> SUCCESS["✅ All Tests Pass"]
+
+    subgraph Frontend["🖥️ Frontend"]
+        JS_DEPS["📦 npm install"]
+        JS_BUILD["🔨 tsc + vite build"]
+    end
+
+    PY_DEPS --> PY_LINT --> PY_TYPE --> PY_MIG --> PY_TEST
+    PG_DEPS --> PG_MIG
+    JS_DEPS --> JS_BUILD
+
+    PY_TEST --> SUCCESS["✅ All Checks Pass"]
+    PG_MIG --> SUCCESS
     JS_BUILD --> SUCCESS
-    
-    SUCCESS --> DOCKER["🐳 Build Docker Image"]
-    DOCKER --> DEPLOY["🚀 Deploy to Staging"]
-    DEPLOY --> NOTIFY["📢 Notify Team"]
 
     style PUSH fill:#e3f2fd
     style Backend fill:#f3e5f5
+    style Postgres fill:#e8eaf6
     style Frontend fill:#e1f5fe
     style SUCCESS fill:#c8e6c9
-    style DOCKER fill:#fff9c4
-    style DEPLOY fill:#ffe0b2
 ```
 
 ---
@@ -284,10 +277,14 @@ graph LR
 
 ### Prerequisites
 - Python 3.10+
-- Node.js 16+ and npm
-- PostgreSQL 12+
-- Redis 7+
+- Node.js 18+ and npm
 - Git
+- Optional: Docker (for PostgreSQL + Redis), API keys for Claude/OpenAI/Twilio/Alexa/Firebase
+
+**No API keys are required.** Without keys, every external service runs as a deterministic
+mock adapter (calls/SMS/Alexa/push are logged; a rule-based `MockProvider` answers LLM prompts),
+so the full app works offline. Add a key to `.env` and that integration switches to the real API.
+SQLite is the default database; set `DATABASE_URL` to use PostgreSQL.
 
 ### Installation
 
@@ -299,51 +296,68 @@ graph LR
 
 2. **Setup Backend**
    ```bash
-   # Create virtual environment
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   
-   # Install dependencies
-   pip install -r requirements.txt
-   
-   # Setup environment
-   cp .env.example .env
-   # Edit .env with your API keys
-   
-   # Initialize database
-   alembic upgrade head
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate        # Windows: .venv\Scripts\activate
+   pip install -e ".[dev]"          # add ,postgres,redis for those backends
+   cp .env.example .env             # optional: add API keys
    ```
 
 3. **Setup Frontend**
    ```bash
    cd frontend
    npm install
+   cp .env.example .env             # optional: VITE_API_URL / VITE_API_TOKEN
    ```
 
 4. **Run Application**
-   
+
    **Terminal 1 (Backend):**
    ```bash
-   python app.py
-   # Backend at http://localhost:5000
+   cd backend && riseup-server      # or: python app.py
+   # API at http://localhost:8000, docs at http://localhost:8000/docs
    ```
-   
+
    **Terminal 2 (Frontend):**
    ```bash
-   cd frontend
-   npm run dev
-   # Frontend at http://localhost:5173
+   cd frontend && npm run dev
+   # GUI at http://localhost:5173
    ```
+
+   **Terminal 3 (CLI):**
+   ```bash
+   riseup alarm add 07:00 --task math --repeat weekdays --label Work
+   riseup alarm trigger 1           # ring now (demo) and show the challenge
+   riseup alarm verify 1 --answer 42
+   riseup remind "call mom tomorrow at 9am"
+   riseup task list
+   riseup stats --range 30d
+   riseup history --since 7d
+   riseup escalation explain 1      # why the agent chose a channel (F14)
+   riseup --json alarm list         # machine-readable output
+   ```
+   CLI exit codes: `0` success, `1` invalid input / not found, `2` server unreachable or error.
+
+   > Port 8000 is used instead of 5000 because macOS reserves 5000 for AirPlay.
+
+### Running Tests
+
+```bash
+cd backend
+pytest                               # 83 tests: unit + API + agent + CLI (~85% coverage)
+flake8 riseup riseup_cli tests && black --check riseup riseup_cli tests && mypy riseup riseup_cli
+cd ../frontend && npm run build      # type-check + production build
+```
 
 ### Using Docker
 
 ```bash
-docker-compose up -d
-# Backend: http://localhost:5000
-# Frontend: http://localhost:3000
-# PostgreSQL: localhost:5432
-# Redis: localhost:6379
+docker compose up -d --build
+# Frontend:   http://localhost:5173
+# Backend:    http://localhost:8000  (runs `alembic upgrade head` on start)
+# PostgreSQL and Redis run as internal services
 ```
+API keys can be passed through the environment, e.g. `CLAUDE_API_KEY=... docker compose up -d`.
 
 ---
 
@@ -352,26 +366,37 @@ docker-compose up -d
 ```
 riseup/
 ├── backend/
-│   ├── app.py                      # Main application
-│   ├── requirements.txt            # Python dependencies
+│   ├── app.py                      # Entry point (python app.py)
+│   ├── pyproject.toml              # Package, deps, `riseup` + `riseup-server` scripts
 │   ├── .env.example                # Environment template
-│   ├── config.py                   # Configuration
-│   ├── alarm_system/               # Alarm logic
-│   ├── escalation_engine/          # AI escalation
-│   ├── task_manager/               # Task handling
-│   ├── user_profile/               # User data & learning
-│   └── tests/                      # Backend tests
+│   ├── Dockerfile
+│   ├── migrations/                 # Alembic migrations
+│   ├── riseup/                     # FastAPI backend
+│   │   ├── main.py, container.py   # App factory + composition root / unit of work
+│   │   ├── models/, repositories/  # SQLAlchemy models and data access
+│   │   ├── alarm_system/           # Alarms, verification strategies, check-in (F01-F03)
+│   │   ├── agent/                  # AgentController + EscalationEngine (F04-F05)
+│   │   ├── ai/                     # LLMClient, providers, prompts, response parser
+│   │   ├── tools/                  # Twilio / Alexa / Firebase adapters + mocks
+│   │   ├── task_manager/           # Reminders, NL parser, prioritizer (F07-F10)
+│   │   ├── user_profile/           # Preferences, learning, analytics, recommendations
+│   │   ├── history/                # History + decision explanations (F14)
+│   │   ├── events/                 # Observer: event bus and observers
+│   │   └── api/                    # Routers, schemas, serializers, WebSocket
+│   ├── riseup_cli/                 # `riseup` CLI (Command pattern)
+│   └── tests/                      # pytest suite
 │
 ├── frontend/
 │   ├── package.json
 │   ├── vite.config.ts
-│   ├── src/
-│   │   ├── components/             # React components
-│   │   ├── pages/                  # Pages
-│   │   ├── services/               # API calls
-│   │   ├── styles/                 # Tailwind styles
-│   │   └── App.tsx
-│   └── tests/                      # Frontend tests
+│   ├── Dockerfile, nginx.conf
+│   └── src/
+│       ├── api/                    # Typed API client + types
+│       ├── components/             # Layout + UI primitives
+│       ├── hooks/                  # Data loading + live WebSocket events
+│       ├── store/                  # zustand app store
+│       ├── pages/                  # Dashboard, alarms, tasks, insights, history, settings
+│       └── App.tsx
 │
 ├── .github/
 │   └── workflows/
@@ -386,7 +411,7 @@ riseup/
 │   │   ├── design-patterns.md
 │   │   ├── feature-to-design-mapping.md
 │   │   └── uml-diagrams/           # PNG of diagrams
-│   ├── stage-2-implementation/ 
+│   ├── stage-2-implementation/     # Implementation notes + AI collaboration log
 │   └── stage-3-testing/
 ├── docker-compose.yml              # Docker setup
 ├── .gitignore
@@ -450,14 +475,19 @@ All diagrams (PNG): **[`docs/stage-1-design/uml-diagrams/`](docs/stage-1-design/
 - [x] Design mapping
 
 ### 🔨 Stage 2: AI-Human Collaborative Implementation
-- [ ] Backend development
-- [ ] Frontend development
-- [ ] API integrations
-- [ ] Database schema
-- [ ] AI collaboration logs
+- [x] Backend development (FastAPI, F01–F14)
+- [x] CLI (`riseup`, all commands from the feature specification)
+- [x] Frontend development (React + TypeScript + Tailwind, live WebSocket updates)
+- [x] API integrations (Twilio, Alexa, Firebase, Claude, OpenAI; offline mocks by default)
+- [x] Database schema (SQLAlchemy + Alembic; SQLite or PostgreSQL)
+- [x] Docker Compose + CI pipeline
+- [x] AI collaboration logs
+
+See **[`docs/stage-2-implementation/`](docs/stage-2-implementation/)** for the feature-to-code map
+and the AI collaboration log.
 
 ### 🧪 Stage 3: Testing & Validation
-- [ ] Unit tests (deterministic)
+- [ ] Unit tests (deterministic) (initial suite added in stage 2)
 - [ ] Integration tests
 - [ ] Agent behavioral tests (KUMA)
 - [ ] Performance testing
@@ -468,13 +498,18 @@ All diagrams (PNG): **[`docs/stage-1-design/uml-diagrams/`](docs/stage-1-design/
 
 ### Environment Variables (.env)
 
-```bash
-# Database
-DATABASE_URL=postgresql://user:password@localhost/riseup_db
+The full list with defaults is in [`backend/.env.example`](backend/.env.example). The most
+important ones:
 
-# AI / LLM APIs
+```bash
+# Database (default: sqlite:///./riseup.db)
+DATABASE_URL=postgresql://user:password@localhost/riseup_db
+REDIS_URL=redis://localhost:6379/0          # optional cache
+
+# AI / LLM APIs (unset = offline MockProvider)
 OPENAI_API_KEY=your_openai_key_here
 CLAUDE_API_KEY=your_anthropic_key_here
+MOCK_LLM_MODE=normal                        # normal | invalid_json | error | disabled_method
 
 # Api keys
 TWILIO_ACCOUNT_SID=your_sid
@@ -507,6 +542,6 @@ For questions or issues, please open a [GitHub Issue](https://github.com/Ghosts6
 
 ---
 
-**Last Updated:** September 29th 2026  
-**Project Status:** Stage 1 - Design Phase(done)  
-**Python:** 3.10+ | **Node:** 16+ | **PostgreSQL:** 12+
+**Last Updated:** October 18th 2026  
+**Project Status:** Stage 2 - Implementation (done)  
+**Python:** 3.10+ | **Node:** 18+ | **PostgreSQL:** 12+ (optional)

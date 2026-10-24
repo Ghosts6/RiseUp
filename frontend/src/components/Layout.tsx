@@ -1,8 +1,9 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
-import { applyTheme, resolveDark, themeLabel } from "../theme";
+import { applyTheme, resolveDark } from "../theme";
 import { useAppStore } from "../store/useAppStore";
+import ThemeToggle from "./ThemeToggle";
 import { Button } from "./ui";
 
 const NAV = [
@@ -78,14 +79,16 @@ export default function Layout() {
   };
 
   return (
-    <div className="safe-top min-h-dvh">
+    <div className="safe-top flex min-h-dvh flex-col">
       <header className="sticky top-0 z-30 border-b border-line/80 bg-surface-raised/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-app items-center gap-3 px-4 py-3">
-          <NavLink to="/" className="group flex min-w-0 items-baseline gap-2">
-            <span className="font-display text-2xl font-bold tracking-tight text-brand-600 transition group-hover:text-brand-500">
-              RiseUp
-            </span>
-            <span className="hidden text-xs text-ink-muted sm:inline">wake smarter</span>
+        <div className="mx-auto flex max-w-app items-center gap-3 px-4 py-2.5 sm:py-3">
+          <NavLink to="/" className="group flex min-w-0 shrink-0 items-center gap-2.5" aria-label="RiseUp home">
+            <img
+              src="/static/img/RiseUp.jpg"
+              alt="RiseUp"
+              className="h-9 w-auto object-contain sm:h-10 dark:rounded-md dark:bg-white dark:p-0.5"
+            />
+            <span className="hidden text-xs text-ink-muted lg:inline">wake smarter</span>
           </NavLink>
 
           <nav className="ml-2 hidden items-center gap-1 md:flex" aria-label="Main">
@@ -115,19 +118,11 @@ export default function Layout() {
               <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-ink-muted"}`} />
               {connected ? "Live" : "Offline"}
             </span>
-            <Button
-              variant="secondary"
-              className="min-h-9 px-2.5"
-              onClick={toggleTheme}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                setTheme("system");
-              }}
-              aria-label={`Theme: ${themeLabel(theme)}. Click to cycle.`}
-              title="Click to cycle light / dark / auto"
-            >
-              {theme === "dark" ? "Dark" : theme === "light" ? "Light" : "Auto"}
-            </Button>
+            <ThemeToggle
+              theme={theme}
+              onToggle={toggleTheme}
+              onResetSystem={() => setTheme("system")}
+            />
           </div>
         </div>
       </header>
@@ -152,9 +147,30 @@ export default function Layout() {
         </div>
       )}
 
-      <main className={`mx-auto max-w-app px-4 py-5 sm:py-7 ${isRingingPage ? "pb-8" : "pb-24 md:pb-10"}`}>
+      <main className={`mx-auto w-full max-w-app flex-1 px-4 py-5 sm:py-7 ${isRingingPage ? "pb-8" : "pb-6"}`}>
         <Outlet />
       </main>
+
+      {!isRingingPage && (
+        <footer className="mt-auto border-t border-line/70 bg-surface-raised/40 pb-[4.75rem] md:pb-0">
+          <div className="mx-auto flex max-w-app flex-col items-center justify-between gap-3 px-4 py-6 text-center sm:flex-row sm:text-left">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/static/img/RiseUp.jpg"
+                alt=""
+                aria-hidden
+                className="h-7 w-auto object-contain opacity-90 dark:rounded dark:bg-white dark:p-0.5"
+              />
+              <p className="text-sm text-ink-muted">
+                Wake smarter. Stay accountable.
+              </p>
+            </div>
+            <p className="text-xs text-ink-muted/80">
+              © {new Date().getFullYear()} RiseUp
+            </p>
+          </div>
+        </footer>
+      )}
 
       {!isRingingPage && (
         <nav

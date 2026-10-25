@@ -29,10 +29,11 @@ export function applyTheme(mode: ThemeMode): void {
   }
 }
 
+/** Flip light ↔ dark from what the user currently sees (including when mode is Auto). */
 export function cycleTheme(mode: ThemeMode): ThemeMode {
-  return mode === "light" ? "dark" : mode === "dark" ? "system" : "light";
+  return resolveDark(mode) ? "light" : "dark";
 }
 
 export function themeLabel(mode: ThemeMode): string {
-  return mode === "light" ? "Light" : mode === "dark" ? "Dark" : "Auto";
+  return resolveDark(mode) ? "Dark mode" : "Light mode";
 }

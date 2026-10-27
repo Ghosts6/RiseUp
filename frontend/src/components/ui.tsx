@@ -52,17 +52,22 @@ const BADGE_COLORS: Record<string, string> = {
   scheduled: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
   sent: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
   mock: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
+  fallback_mock: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
+  not_configured: "bg-surface-sunk text-ink-muted",
   completed: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   acknowledged: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   accepted: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   granted: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   ok: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
   live: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+  running: "bg-emerald-500/15 text-emerald-800 dark:text-emerald-300",
+  local: "bg-sky-500/15 text-sky-800 dark:text-sky-300",
   denied: "bg-red-500/15 text-red-700 dark:text-red-300",
   declined: "bg-red-500/15 text-red-700 dark:text-red-300",
   low: "bg-surface-sunk text-ink-muted",
   idle: "bg-surface-sunk text-ink-muted",
   disabled: "bg-surface-sunk text-ink-muted",
+  stopped: "bg-amber-500/15 text-amber-800 dark:text-amber-300",
 };
 
 export function Badge({ value, children }: { value: string; children?: ReactNode }) {

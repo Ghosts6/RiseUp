@@ -28,20 +28,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - ./backend/.env
     environment:
       DATABASE_URL: postgresql://riseup:riseup@postgres:5432/riseup
       REDIS_URL: redis://redis:6379/0
-      CORS_ORIGINS: http://localhost:5173
       PUBLIC_BASE_URL: http://localhost:8000
-      DEMO_TOKEN: ${DEMO_TOKEN:-dev-token}
-      # Optional: leave empty to use the offline mock adapters.
-      CLAUDE_API_KEY: ${CLAUDE_API_KEY:-}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
-      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
-      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
-      ALEXA_API_KEY: ${ALEXA_API_KEY:-}
-      FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8000:8000"
 

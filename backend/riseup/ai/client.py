@@ -69,13 +69,15 @@ class LLMClient:
 
 def build_llm_client(settings: Settings) -> LLMClient:
     providers: dict[str, LLMProvider] = {"mock": MockProvider(settings.mock_llm_mode)}
-    if settings.claude_api_key:
+    claude_key = Settings.configured(settings.claude_api_key)
+    openai_key = Settings.configured(settings.openai_api_key)
+    if claude_key:
         providers["claude"] = ClaudeProvider(
-            settings.claude_api_key, settings.claude_model, settings.llm_timeout_seconds
+            claude_key, settings.claude_model, settings.llm_timeout_seconds
         )
-    if settings.openai_api_key:
+    if openai_key:
         providers["openai"] = OpenAIProvider(
-            settings.openai_api_key, settings.openai_model, settings.llm_timeout_seconds
+            openai_key, settings.openai_model, settings.llm_timeout_seconds
         )
     routing = {
         "escalation": settings.llm_escalation_provider,

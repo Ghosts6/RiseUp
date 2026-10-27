@@ -21,10 +21,14 @@ node_modules/
 package-lock.json
 poetry.lock
 
-# Environment variables (sensitive data)
+# Environment variables / local secrets (Stage 2 API-key protection)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!**/.env.example
+config.local.json
+*.pem
+*.key
 
 # IDE
 .vscode/

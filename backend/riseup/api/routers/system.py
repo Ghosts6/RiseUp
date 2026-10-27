@@ -5,20 +5,14 @@ from fastapi import APIRouter, Depends, Request
 from riseup import __version__
 from riseup.api import serializers as ser
 from riseup.api.deps import current_user_id, get_container, uow
+from riseup.status import health_payload
 
 router = APIRouter(prefix="/api", tags=["system"])
 
 
 @router.get("/health")
 def health(request: Request) -> dict:
-    container = get_container(request)
-    return {
-        "status": "ok",
-        "version": __version__,
-        "environment": container.settings.environment,
-        "integrations": container.tool_manager.mode,
-        "llm": container.llm_client.describe(),
-    }
+    return health_payload(get_container(request), __version__)
 
 
 @router.get("/me")

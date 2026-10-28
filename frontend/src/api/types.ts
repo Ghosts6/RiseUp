@@ -40,6 +40,8 @@ export interface ChallengeState {
   alarm_id: number;
   status: AlarmStatus;
   label: string | null;
+  sound?: string;
+  vibration?: string;
   triggered_at: string | null;
   snooze_available: boolean;
   challenge: Challenge | null;
@@ -285,10 +287,25 @@ export interface LiveEvent {
   at: string;
 }
 
+export interface ServiceStatus {
+  status: string;
+  label: string;
+  detail: string;
+  mode?: string;
+  configured?: boolean;
+  provider?: string;
+  model?: string;
+  requested?: string;
+  missing?: string[];
+}
+
 export interface Health {
   status: string;
   version: string;
   environment: string;
   integrations: Record<string, string>;
   llm: Record<string, string>;
+  services?: Record<string, ServiceStatus>;
+  integrations_detail?: Record<string, ServiceStatus>;
+  llm_detail?: Record<string, ServiceStatus>;
 }

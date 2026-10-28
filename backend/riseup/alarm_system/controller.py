@@ -96,6 +96,8 @@ class AlarmController:
             "alarm_id": alarm.id,
             "status": alarm.status,
             "label": alarm.label,
+            "sound": alarm.sound,
+            "vibration": alarm.vibration,
             "triggered_at": alarm.triggered_at,
             "snooze_available": alarm.snooze_enabled
             and alarm.snooze_count < self.s.settings.max_snoozes

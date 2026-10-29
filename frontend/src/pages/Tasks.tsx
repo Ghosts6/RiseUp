@@ -6,10 +6,12 @@ import { api, errorMessage } from "../api/client";
 import type { ParseResult, Priority, Reminder } from "../api/types";
 import { Badge, Button, Card, Empty, ErrorNote, Field, PageHeader, inputClass } from "../components/ui";
 import { useAction, useApi } from "../hooks/useApi";
+import { useAppStore } from "../store/useAppStore";
 
 const PRIORITIES: Priority[] = ["low", "medium", "high", "critical"];
 const CATEGORIES = ["work", "personal", "health", "other"];
 const REPEATS = ["none", "daily", "weekly", "weekdays"];
+const NOTIFY = ["push", "sms", "call", "email"] as const;
 
 const draftSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(120),
@@ -17,12 +19,14 @@ const draftSchema = z.object({
   priority: z.enum(["low", "medium", "high", "critical"]),
   category: z.enum(["work", "personal", "health", "other"]),
   repeat_pattern: z.enum(["none", "daily", "weekly", "weekdays"]),
+  notification_type: z.enum(["push", "sms", "call", "email"]),
   extra_times_text: z.string().optional(),
 });
 type Draft = z.infer<typeof draftSchema>;
 
 const EMPTY_DRAFT: Draft = {
-  title: "", due: "", priority: "medium", category: "other", repeat_pattern: "none", extra_times_text: "",
+  title: "", due: "", priority: "medium", category: "other", repeat_pattern: "none",
+  notification_type: "push", extra_times_text: "",
 };
 
 function toDatetimeLocal(value: string): string {
@@ -43,6 +47,8 @@ function reminderToDraft(r: Reminder): Draft {
     priority: r.priority,
     category: (CATEGORIES.includes(r.category) ? r.category : "other") as Draft["category"],
     repeat_pattern: (REPEATS.includes(r.repeat_pattern) ? r.repeat_pattern : "none") as Draft["repeat_pattern"],
+    notification_type: (NOTIFY.includes(r.notification_type as Draft["notification_type"])
+      ? r.notification_type : "push") as Draft["notification_type"],
     extra_times_text: (r.extra_times_local ?? []).join(", "),
   };
 }
@@ -55,7 +61,22 @@ function toReminderInput(draft: Draft) {
     priority: draft.priority,
     category: draft.category,
     repeat_pattern: draft.repeat_pattern,
+    notification_type: draft.notification_type,
     ...(extras.length ? { extra_times: extras } : { extra_times: [] }),
+  };
+}
+
+function draftFromParse(parsed: ParseResult, fallbackText: string): Draft {
+  const d = parsed.draft;
+  return {
+    title: (d?.title ?? fallbackText).trim() || fallbackText,
+    due: d?.due ? toDatetimeLocal(d.due) : "",
+    priority: (d?.priority && PRIORITIES.includes(d.priority) ? d.priority : "medium"),
+    category: (d?.category && CATEGORIES.includes(d.category) ? d.category : "other") as Draft["category"],
+    repeat_pattern: (d?.repeat_pattern && REPEATS.includes(d.repeat_pattern)
+      ? d.repeat_pattern : "none") as Draft["repeat_pattern"],
+    notification_type: "push",
+    extra_times_text: "",
   };
 }
 
@@ -92,6 +113,11 @@ function DraftForm({ initial, submitLabel, onSubmit, onCancel, recurringScope }:
           {REPEATS.map((r) => <option key={r}>{r}</option>)}
         </select>
       </Field>
+      <Field label="Notify via" hint="Primary channel for this reminder (must also be enabled in Settings).">
+        <select className={inputClass} {...register("notification_type")}>
+          {NOTIFY.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+      </Field>
       <Field label="Extra reminder times" hint="Optional. Comma-separated local times, e.g. 2026-10-20T17:00, 2026-10-21T09:00">
         <input className={inputClass} placeholder="2026-10-20T17:00" {...register("extra_times_text")} />
       </Field>
@@ -111,7 +137,10 @@ function DraftForm({ initial, submitLabel, onSubmit, onCancel, recurringScope }:
   );
 }
 
-function QuickAdd({ onCreated }: { onCreated: () => void }) {
+function QuickAdd({ onCreated, onManualFallback }: {
+  onCreated: () => void;
+  onManualFallback: (draft: Draft, reason: string) => void;
+}) {
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,9 +152,24 @@ function QuickAdd({ onCreated }: { onCreated: () => void }) {
     setBusy(true);
     setError(null);
     try {
-      setParsed(await api.reminders.parse(text));
+      const result = await api.reminders.parse(text);
+      if (result.status === "failed") {
+        onManualFallback(
+          draftFromParse(result, text),
+          result.message || "Couldn't parse that — finish the details in the form.",
+        );
+        setParsed(null);
+        setText("");
+        return;
+      }
+      setParsed(result);
     } catch (err) {
-      setError(errorMessage(err));
+      // Network / LLM hard failure: open the manual form pre-filled (F07).
+      onManualFallback(
+        { ...EMPTY_DRAFT, title: text.trim() },
+        errorMessage(err) || "Parser unavailable — use the form below.",
+      );
+      setParsed(null);
     } finally {
       setBusy(false);
     }
@@ -143,14 +187,7 @@ function QuickAdd({ onCreated }: { onCreated: () => void }) {
     }
   };
 
-  const initial: Draft | null = parsed?.draft ? {
-    title: parsed.draft.title ?? "",
-    due: parsed.draft.due ?? "",
-    priority: parsed.draft.priority,
-    category: (CATEGORIES.includes(parsed.draft.category) ? parsed.draft.category : "other") as Draft["category"],
-    repeat_pattern: (REPEATS.includes(parsed.draft.repeat_pattern) ? parsed.draft.repeat_pattern : "none") as Draft["repeat_pattern"],
-    extra_times_text: "",
-  } : null;
+  const initial: Draft | null = parsed?.draft ? draftFromParse(parsed, text) : null;
 
   return (
     <Card title="Quick add" className="!border-brand-500/20">
@@ -170,10 +207,10 @@ function QuickAdd({ onCreated }: { onCreated: () => void }) {
             </span>
             <span className="text-xs text-ink-muted">parsed by {parsed.decided_by}</span>
           </div>
-          {parsed.status === "failed" || !initial
-            ? <p className="text-sm text-ink-soft">Couldn't understand that. Use the form below instead.</p>
-            : <DraftForm key={JSON.stringify(initial)} initial={initial} submitLabel="Confirm"
-                onSubmit={async (d) => confirm(d)} onCancel={() => setParsed(null)} />}
+          {initial
+            ? <DraftForm key={JSON.stringify(initial)} initial={initial} submitLabel="Confirm"
+                onSubmit={async (d) => confirm(d)} onCancel={() => setParsed(null)} />
+            : <p className="text-sm text-ink-soft">Couldn't understand that. Use the form below instead.</p>}
         </div>
       )}
     </Card>
@@ -187,15 +224,25 @@ export default function Tasks() {
   }), [filters]);
   const preview = useApi(() => api.reminders.priorityPreview());
   const [showForm, setShowForm] = useState(false);
+  const [formInitial, setFormInitial] = useState<Draft>(EMPTY_DRAFT);
   const [editing, setEditing] = useState<Reminder | null>(null);
   const run = useAction();
+  const toast = useAppStore((s) => s.toast);
 
   const refresh = () => { void reminders.reload(); void preview.reload(); };
   const act = async (fn: () => Promise<unknown>, msg: string) => { if (await run(fn, msg) !== undefined) refresh(); };
 
+  const openManual = (draft: Draft, reason?: string) => {
+    setEditing(null);
+    setFormInitial(draft);
+    setShowForm(true);
+    if (reason) toast(reason, "info");
+  };
+
   const create = async (draft: Draft) => {
     if (await run(() => api.reminders.create(toReminderInput(draft)), `Reminder "${draft.title}" scheduled`)) {
       setShowForm(false);
+      setFormInitial(EMPTY_DRAFT);
       refresh();
     }
   };
@@ -221,17 +268,22 @@ export default function Tasks() {
         title="Tasks"
         subtitle="Natural-language reminders, priorities, and follow-ups in one place."
         actions={(
-          <Button variant="secondary" onClick={() => { setShowForm((v) => !v); setEditing(null); }}>
+          <Button variant="secondary" onClick={() => {
+            setShowForm((v) => !v);
+            setEditing(null);
+            if (!showForm) setFormInitial(EMPTY_DRAFT);
+          }}>
             {showForm ? "Close form" : "+ Manual add"}
           </Button>
         )}
       />
-      <QuickAdd onCreated={refresh} />
+      <QuickAdd onCreated={refresh} onManualFallback={openManual} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2" title="Your list">
           {showForm && <div className="mb-4 rounded-2xl border border-line bg-surface-sunk/50 p-4">
-            <DraftForm initial={EMPTY_DRAFT} submitLabel="Add reminder" onSubmit={async (d) => create(d)} />
+            <DraftForm key={JSON.stringify(formInitial)} initial={formInitial} submitLabel="Add reminder"
+              onSubmit={async (d) => create(d)} />
           </div>}
           {editing && (
             <div className="mb-4 rounded-2xl border border-brand-500/25 bg-brand-500/10 p-4">
@@ -270,7 +322,8 @@ export default function Tasks() {
                     <div className="min-w-0 flex-1">
                       <div className={`font-medium ${open ? "" : "text-ink-muted line-through"}`}>{r.title}</div>
                       <div className="text-xs text-ink-muted">
-                        {r.due_local} · {r.category}{r.repeat_pattern !== "none" && ` · ${r.repeat_pattern}`}
+                        {r.due_local} · {r.category} · {r.notification_type}
+                        {r.repeat_pattern !== "none" && ` · ${r.repeat_pattern}`}
                         {r.extra_times_local?.length ? ` · also ${r.extra_times_local.join(", ")}` : ""}
                         {r.escalation_level > 0 && ` · reminder level ${r.escalation_level}`}
                       </div>

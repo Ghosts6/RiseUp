@@ -66,6 +66,12 @@ class JobRunner:
     def reminder_missed(self, reminder_id: int) -> None:
         self._run("reminder_missed", lambda s: s.reminder_scheduler.mark_missed(reminder_id))
 
+    def reminder_retry(self, reminder_id: int, level: int = 1) -> None:
+        self._run(
+            "reminder_retry",
+            lambda s: s.reminder_scheduler.retry_delivery(reminder_id, level),
+        )
+
     # learning
     def nightly_learning(self) -> None:
         def run_all(s: "AppServices") -> None:

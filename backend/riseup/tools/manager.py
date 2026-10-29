@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+import smtplib
+from email.message import EmailMessage
 from typing import TYPE_CHECKING
 
 from riseup.config import Settings
@@ -24,18 +26,28 @@ ESCALATION_MESSAGES = {
 
 
 class ToolManager:
-    def __init__(self, twilio: Tool, alexa: Tool, firebase: Tool, emergency_attempts: int = 3):
+    def __init__(
+        self,
+        twilio: Tool,
+        alexa: Tool,
+        firebase: Tool,
+        emergency_attempts: int = 3,
+        smtp: dict[str, object] | None = None,
+    ):
         self.twilio = twilio
         self.alexa = alexa
         self.firebase = firebase
         self.emergency_attempts = emergency_attempts
+        self.smtp = smtp or {}
 
     @property
     def mode(self) -> dict[str, str]:
-        return {
+        modes = {
             t.name: ("mock" if t.is_mock else "live")
             for t in (self.twilio, self.alexa, self.firebase)
         }
+        modes["email"] = "live" if self.smtp.get("host") else "mock"
+        return modes
 
     def channel_ready(self, channel: str, user: "User", contact: "EmergencyContact | None") -> bool:
         if channel in ("call", "sms"):
@@ -130,29 +142,73 @@ class ToolManager:
                 return ToolResult(False, "call", "No phone number on file")
             return self.twilio.execute({"action": "call", "to": user.phone, "message": body})
         if channel == "email":
-            log.info("[email] to=%s %s - %s", user.email, title, body)
-            return ToolResult(
-                bool(user.email), "email", "email queued" if user.email else "No email"
-            )
+            return self.send_email(user.email, title, body)
         return ToolResult(False, channel, f"Unsupported channel '{channel}'")
+
+    def send_email(self, to: str | None, subject: str, body: str) -> ToolResult:
+        if not to:
+            return ToolResult(False, "email", "No email")
+        host = self.smtp.get("host")
+        if not host:
+            log.info("[email/mock] to=%s %s - %s", to, subject, body)
+            return ToolResult(True, "email", "email queued (mock)")
+        if "email" in (self.smtp.get("failures") or set()):
+            return ToolResult(False, "email", "Simulated email failure")
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = str(self.smtp.get("from") or self.smtp.get("username") or "riseup@localhost")
+        msg["To"] = to
+        msg.set_content(body)
+        try:
+            port = int(self.smtp.get("port") or 587)
+            if self.smtp.get("use_tls", True):
+                with smtplib.SMTP(str(host), port, timeout=15) as server:
+                    server.starttls()
+                    user = self.smtp.get("username")
+                    password = self.smtp.get("password")
+                    if user and password:
+                        server.login(str(user), str(password))
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(str(host), port, timeout=15) as server:
+                    user = self.smtp.get("username")
+                    password = self.smtp.get("password")
+                    if user and password:
+                        server.login(str(user), str(password))
+                    server.send_message(msg)
+            return ToolResult(True, "email", f"email sent to {to}")
+        except (OSError, smtplib.SMTPException) as exc:
+            log.warning("SMTP send failed: %s", exc)
+            return ToolResult(False, "email", f"email failed: {exc}")
 
 
 def build_tool_manager(settings: Settings) -> ToolManager:
     failures = settings.mock_tool_failure_set
-    if settings.twilio_account_sid and settings.twilio_auth_token and settings.twilio_phone_number:
-        twilio: Tool = TwilioClient(
-            settings.twilio_account_sid, settings.twilio_auth_token, settings.twilio_phone_number
-        )
+    twilio_sid = Settings.configured(settings.twilio_account_sid)
+    twilio_token = Settings.configured(settings.twilio_auth_token)
+    twilio_from = Settings.configured(settings.twilio_phone_number)
+    alexa_key = Settings.configured(settings.alexa_api_key)
+    firebase_key = Settings.configured(settings.firebase_api_key)
+    smtp_host = Settings.configured(settings.smtp_host)
+    if twilio_sid and twilio_token and twilio_from:
+        twilio: Tool = TwilioClient(twilio_sid, twilio_token, twilio_from)
     else:
         twilio = MockTwilioClient(failures)
     alexa: Tool = (
-        AlexaClient(settings.alexa_api_key, settings.alexa_notify_url)
-        if settings.alexa_api_key
+        AlexaClient(alexa_key, settings.alexa_notify_url)
+        if alexa_key
         else MockAlexaClient(failures)
     )
     firebase: Tool = (
-        FirebaseClient(settings.firebase_api_key)
-        if settings.firebase_api_key
-        else MockFirebaseClient(failures)
+        FirebaseClient(firebase_key) if firebase_key else MockFirebaseClient(failures)
     )
-    return ToolManager(twilio, alexa, firebase, settings.emergency_contact_attempts)
+    smtp = {
+        "host": smtp_host,
+        "port": settings.smtp_port,
+        "username": Settings.configured(settings.smtp_username),
+        "password": Settings.configured(settings.smtp_password),
+        "from": Settings.configured(settings.smtp_from),
+        "use_tls": settings.smtp_use_tls,
+        "failures": failures,
+    }
+    return ToolManager(twilio, alexa, firebase, settings.emergency_contact_attempts, smtp)

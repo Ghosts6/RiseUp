@@ -40,7 +40,8 @@ def describe(event: StatusEvent) -> tuple[str, str] | None:
             "escalation_sent": (f"Still to do: {title}", "Second nudge."),
             "final_sent": (f"Last reminder: {title}", "Final nudge before it's marked missed."),
             "missed": (f"Missed: {title}", "Marked as missed."),
-            "queued": (f"Reminder: {title}", "Delivery failed; shown here instead."),
+            "queued": (f"Reminder: {title}", "Delivery failed; queued for retry and shown here."),
+            "retry_sent": (f"Reminder retry: {title}", "Queued notification was delivered."),
         }.get(p.get("event", ""))
     if event.subject_type == "escalation":
         method = p.get("method", "?")

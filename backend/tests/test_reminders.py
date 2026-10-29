@@ -18,6 +18,33 @@ def test_parse_returns_draft_without_saving(h):
     assert h.client.get("/api/reminders").json() == []
 
 
+def test_alexa_voice_webhook_parses_utterance(h):
+    simple = h.client.post("/api/webhooks/alexa", json={"text": "call mom tomorrow at 9am"}).json()
+    assert simple["status"] == "ok"
+    assert simple["draft"]["due"] == "2026-10-20T09:00"
+    assert "speech" in simple
+
+    skill = h.client.post(
+        "/api/webhooks/alexa",
+        json={
+            "request": {
+                "type": "IntentRequest",
+                "intent": {
+                    "name": "CreateReminderIntent",
+                    "slots": {"utterance": {"value": "buy milk"}},
+                },
+            }
+        },
+    ).json()
+    assert skill["response"]["outputSpeech"]["text"]
+    assert skill["sessionAttributes"]["riseup_parse"]["status"] == "needs_clarification"
+
+
+def test_create_with_notification_type(h):
+    reminder = add(h, notification_type="email")
+    assert reminder["notification_type"] == "email"
+
+
 def test_parse_handles_vague_and_past_times(h):
     vague = h.client.post("/api/reminders/parse", json={"text": "buy milk"}).json()
     assert vague["status"] == "needs_clarification" and vague["question"] == "At what time?"
@@ -46,6 +73,18 @@ def test_escalation_levels_until_missed(h):
     h.advance(minutes=10)
     assert get(h, reminder["id"])["status"] == "missed"
     assert len(h.firebase.sent) == 3
+
+
+def test_failed_delivery_is_queued_then_retried(make_harness):
+    h = make_harness(failures={"push"})
+    reminder = add(h)
+    h.advance(minutes=10)
+    assert get(h, reminder["id"])["status"] == "notifying"
+    assert len(h.firebase.sent) == 1  # first attempt recorded even when it fails
+    # Clear the injected failure so the offline retry can deliver.
+    h.firebase.failures.clear()
+    h.advance(minutes=2)
+    assert len(h.firebase.sent) == 2
 
 
 def test_completing_stops_escalation_and_spawns_next_repeat(h):

@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     alexa_api_key: str | None = None
     alexa_notify_url: str = "https://api.notifymyecho.com/v1/NotifyMe"
     firebase_api_key: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_use_tls: bool = True
     mock_tool_failures: str = ""
 
     # Timing
@@ -61,12 +67,14 @@ class Settings(BaseSettings):
     snooze_minutes: int = 10
     max_snoozes: int = 3
     checkin_response_minutes: int = 5
-    escalation_response_seconds: int = 60
+    # Spec F05: wait 30s after a failed call before trying the next channel.
+    escalation_response_seconds: int = 30
     emergency_contact_attempts: int = 3
     reminder_escalation_minutes: int = 5
     reminder_final_minutes: int = 15
     reminder_missed_minutes: int = 25
     reminder_snooze_minutes: int = 15
+    reminder_retry_minutes: int = 2
     learning_cron_hour: int = 3
     camera_available: bool = True
     max_alarms_per_user: int = 20
@@ -78,6 +86,19 @@ class Settings(BaseSettings):
     @property
     def mock_tool_failure_set(self) -> set[str]:
         return {c.strip() for c in self.mock_tool_failures.split(",") if c.strip()}
+
+    @staticmethod
+    def configured(value: str | None) -> str | None:
+        """Treat blank / YOUR_*_HERE placeholders as unset so mocks stay active."""
+        if value is None:
+            return None
+        text = value.strip()
+        if not text:
+            return None
+        upper = text.upper()
+        if upper.startswith("YOUR_") or upper.endswith("_HERE") or upper == "CHANGE-ME":
+            return None
+        return text
 
 
 @lru_cache

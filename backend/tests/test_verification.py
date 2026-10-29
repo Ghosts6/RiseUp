@@ -1,7 +1,9 @@
 import base64
+import io
 import random
 
 import pytest
+from PIL import Image, ImageDraw
 
 from riseup.alarm_system.verification import VerificationResponse
 from riseup.alarm_system.verification.factory import VerificationTaskFactory
@@ -17,6 +19,33 @@ from riseup.errors import ValidationFailed
 
 def b64(data: bytes) -> str:
     return base64.b64encode(data).decode()
+
+
+def sample_photo(kind: str = "window") -> bytes:
+    """Build a JPEG that passes Pillow quality + scene heuristics."""
+    img = Image.new("RGB", (480, 360), (30, 30, 40))
+    draw = ImageDraw.Draw(img)
+    rng = random.Random(7)
+    if kind == "window":
+        draw.rectangle((0, 0, 480, 140), fill=(210, 230, 255))
+        draw.rectangle((80, 40, 400, 300), fill=(180, 200, 230))
+        for _ in range(400):
+            x, y = rng.randint(0, 479), rng.randint(0, 359)
+            draw.point((x, y), fill=(rng.randint(40, 220),) * 3)
+    elif kind == "toothbrush":
+        draw.rectangle((0, 0, 480, 360), fill=(90, 100, 110))
+        draw.rectangle((210, 60, 270, 300), fill=(240, 240, 250))
+        draw.ellipse((200, 40, 280, 90), fill=(250, 250, 255))
+        for _ in range(600):
+            x, y = rng.randint(180, 300), rng.randint(40, 320)
+            draw.point((x, y), fill=(rng.randint(180, 255),) * 3)
+    else:
+        for y in range(360):
+            for x in range(0, 480, 3):
+                draw.point((x, y), fill=(rng.randint(20, 230),) * 3)
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
 
 
 class TestMathTask:
@@ -69,13 +98,32 @@ class TestObjectDetectionTask:
         )
         assert not task.validate(VerificationResponse(image_base64=b64(b"hello" * 1000))).success
 
-    def test_accepts_real_photo(self):
+    def test_rejects_blank_padded_jpeg(self):
         jpeg = b"\xff\xd8\xff" + b"\x00" * 5000
         result = ObjectDetectionTask("toothbrush").validate(
-            VerificationResponse(image_base64="data:image/jpeg;base64," + b64(jpeg))
+            VerificationResponse(image_base64=b64(jpeg))
+        )
+        assert not result.success
+
+    def test_accepts_real_photo(self):
+        result = ObjectDetectionTask("toothbrush").validate(
+            VerificationResponse(image_base64="data:image/jpeg;base64," + b64(sample_photo("toothbrush")))
         )
         assert result.success
         assert result.data["detected"] == ["toothbrush"]
+
+    def test_window_scene_heuristic(self):
+        ok = ObjectDetectionTask("window").validate(
+            VerificationResponse(image_base64=b64(sample_photo("window")))
+        )
+        assert ok.success
+        solid = Image.new("RGB", (480, 360), (10, 10, 10))
+        buf = io.BytesIO()
+        solid.save(buf, format="JPEG", quality=90)
+        bad = ObjectDetectionTask("window").validate(
+            VerificationResponse(image_base64=b64(buf.getvalue()))
+        )
+        assert not bad.success
 
 
 class TestFactory:

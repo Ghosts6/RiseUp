@@ -48,7 +48,7 @@ class ReminderScheduler:
                 )
 
     def cancel(self, reminder: Reminder) -> None:
-        for prefix in ("reminder-esc", "reminder-final", "reminder-miss"):
+        for prefix in ("reminder-esc", "reminder-final", "reminder-miss", "reminder-retry"):
             self.s.scheduler.cancel(f"{prefix}:{reminder.id}")
         for index in range(len(reminder.extra_times or [])):
             self.s.scheduler.cancel(f"reminder-extra:{reminder.id}:{index}")
@@ -126,6 +126,14 @@ class ReminderScheduler:
                 "notifying",
                 payload={"event": "queued", "level": 1, "channel": "dashboard"},
             )
+            # Durable offline retry: re-attempt delivery once after a short delay (F10).
+            self.s.scheduler.schedule(
+                f"reminder-retry:{reminder.id}",
+                now + timedelta(minutes=self.s.settings.reminder_retry_minutes),
+                self.s.jobs.reminder_retry,
+                reminder_id=reminder.id,
+                level=1,
+            )
         self.s.scheduler.schedule(
             f"reminder-esc:{reminder.id}",
             now + timedelta(minutes=self.s.settings.reminder_escalation_minutes),
@@ -145,6 +153,25 @@ class ReminderScheduler:
             payload={"event": "extra_sent", "channel": channel, "delivered": delivered},
         )
 
+    def retry_delivery(self, reminder_id: int, level: int = 1) -> None:
+        """Re-send a previously failed (queued) reminder notification."""
+        reminder = self.s.repos.reminders.get(reminder_id)
+        if reminder is None or reminder.status != "notifying":
+            return
+        level = max(1, min(3, int(level or 1)))
+        channel, delivered = self._deliver(reminder, level)
+        self.s.emitter.emit(
+            "reminder",
+            reminder,
+            "notifying",
+            payload={
+                "event": "retry_sent" if delivered else "queued",
+                "level": level,
+                "channel": channel if delivered else "dashboard",
+                "delivered": delivered,
+            },
+        )
+
     def send_escalation_reminder(self, reminder_id: int) -> None:
         reminder = self.s.repos.reminders.get(reminder_id)
         if reminder is None or reminder.status != "notifying" or reminder.escalation_level != 1:
@@ -162,6 +189,14 @@ class ReminderScheduler:
                 "delivered": delivered,
             },
         )
+        if not delivered:
+            self.s.scheduler.schedule(
+                f"reminder-retry:{reminder.id}",
+                self.s.now() + timedelta(minutes=self.s.settings.reminder_retry_minutes),
+                self.s.jobs.reminder_retry,
+                reminder_id=reminder.id,
+                level=2,
+            )
         self.s.scheduler.schedule(
             f"reminder-final:{reminder.id}",
             reminder.first_notified_at + timedelta(minutes=self.s.settings.reminder_final_minutes),
@@ -181,6 +216,14 @@ class ReminderScheduler:
             "notifying",
             payload={"event": "final_sent", "level": 3, "channel": channel, "delivered": delivered},
         )
+        if not delivered:
+            self.s.scheduler.schedule(
+                f"reminder-retry:{reminder.id}",
+                self.s.now() + timedelta(minutes=self.s.settings.reminder_retry_minutes),
+                self.s.jobs.reminder_retry,
+                reminder_id=reminder.id,
+                level=3,
+            )
         self.s.scheduler.schedule(
             f"reminder-miss:{reminder.id}",
             reminder.first_notified_at + timedelta(minutes=self.s.settings.reminder_missed_minutes),

@@ -41,6 +41,13 @@ config.local.json
 # Build outputs
 /frontend/build/
 /frontend/dist/
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+backend/data/
+*.jar
+!gradle/wrapper/*.jar
+out/
 
 # Logs
 *.log

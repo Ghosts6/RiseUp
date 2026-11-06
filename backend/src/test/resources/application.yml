@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:riseup_test_${random.uuid};MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DEFAULT_NULL_ORDERING=HIGH
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    open-in-view: false
+  flyway:
+    enabled: true
+  main:
+    allow-bean-definition-overriding: true
+
+riseup:
+  version: 0.2.0-test
+  environment: test
+  demo-token: dev-token
+  require-auth: false
+  enable-scheduler: false
+  verification-timeout-seconds: 120
+  checkin-response-minutes: 5
+  escalation-response-seconds: 30
+  camera-available: true
+  mock-llm-mode: normal
+  mock-tool-failures: ""

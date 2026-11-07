@@ -14,6 +14,7 @@ import com.riseup.repository.AlarmRepository;
 import com.riseup.repository.EscalationLogRepository;
 import com.riseup.repository.UserPreferencesRepository;
 import com.riseup.time.TimeUtil;
+import com.riseup.verification.SeriesTask;
 import com.riseup.verification.VerificationResponse;
 import com.riseup.verification.VerificationResult;
 import com.riseup.verification.VerificationTask;
@@ -199,7 +200,11 @@ public class AlarmControllerService {
                     message = "Camera unavailable. Switched to a math puzzle instead.";
                 }
             } else if (task.resetsOnFailure()) {
-                newTask = taskFactory.create(task.getTaskType(), alarm.getCustomTaskText(), 0);
+                if (task instanceof SeriesTask series) {
+                    newTask = series.regenerateCurrent();
+                } else {
+                    newTask = taskFactory.create(task.getTaskType(), alarm.getCustomTaskText(), 0);
+                }
             }
             if (newTask != null) alarm.setCurrentTask(newTask.toState());
             alarms.save(alarm);
@@ -212,6 +217,21 @@ public class AlarmControllerService {
             out.put("success", false);
             out.put("message", message);
             out.put("challenge", current.getTaskPrompt());
+            out.put("attempts", alarm.getFailedAttempts());
+            return out;
+        }
+        // Multi-question series: advance to the next question without finishing the alarm
+        if (Boolean.TRUE.equals(result.getData().get("continue")) && result.getData().get("next_state") instanceof Map<?, ?> nextRaw) {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> nextState = (Map<String, Object>) nextRaw;
+            alarm.setCurrentTask(nextState);
+            alarms.save(alarm);
+            VerificationTask advanced = taskFactory.fromState(nextState);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("success", true);
+            out.put("finished", false);
+            out.put("message", result.getMessage());
+            out.put("challenge", advanced.getTaskPrompt());
             out.put("attempts", alarm.getFailedAttempts());
             return out;
         }
@@ -246,6 +266,7 @@ public class AlarmControllerService {
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("success", true);
+        out.put("finished", true);
         out.put("message", "Task completed! Rest well.");
         out.put("checkin_at", checkin == null ? null : TimeUtil.isoZ(checkin.getScheduledAt()));
         out.put("seconds_to_verify", seconds);

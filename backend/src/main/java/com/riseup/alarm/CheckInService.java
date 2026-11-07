@@ -36,6 +36,7 @@ public class CheckInService {
     private final AlarmSchedulerService alarmScheduler;
     private final EscalationEngine escalationEngine;
     private final StatusEmitter emitter;
+    private final CheckInService self;
 
     public CheckInService(
             CheckInRepository checkins,
@@ -48,7 +49,8 @@ public class CheckInService {
             ToolManager tools,
             @Lazy AlarmSchedulerService alarmScheduler,
             @Lazy EscalationEngine escalationEngine,
-            StatusEmitter emitter) {
+            StatusEmitter emitter,
+            @Lazy CheckInService self) {
         this.checkins = checkins;
         this.alarms = alarms;
         this.users = users;
@@ -60,6 +62,7 @@ public class CheckInService {
         this.alarmScheduler = alarmScheduler;
         this.escalationEngine = escalationEngine;
         this.emitter = emitter;
+        this.self = self;
     }
 
     public static String sendJobId(int id) { return "checkin-send:" + id; }
@@ -96,7 +99,7 @@ public class CheckInService {
         scheduler.schedule(
                 sendJobId(checkin.getId()),
                 checkin.getScheduledAt(),
-                kwargs -> send(((Number) kwargs.get("checkin_id")).intValue()),
+                kwargs -> self.send(((Number) kwargs.get("checkin_id")).intValue()),
                 Map.of("checkin_id", checkin.getId()));
         return checkin;
     }
@@ -126,7 +129,7 @@ public class CheckInService {
         scheduler.schedule(
                 timeoutJobId(checkin.getId()),
                 now.plusMinutes(settings.getCheckinResponseMinutes()),
-                kwargs -> timeoutHandler(((Number) kwargs.get("checkin_id")).intValue()),
+                kwargs -> self.timeoutHandler(((Number) kwargs.get("checkin_id")).intValue()),
                 Map.of("checkin_id", checkin.getId()));
         return checkin;
     }
@@ -183,6 +186,7 @@ public class CheckInService {
         if (alarm == null) return;
         alarmScheduler.addLog(alarm, "checkin_missed", Map.of());
         if ("awaiting_checkin".equals(alarm.getStatus())) {
+            // Stage 1 F03 → F04: missed check-in starts escalation
             alarmScheduler.startEscalation(alarm, "checkin_missed");
         }
     }

@@ -27,16 +27,24 @@ public class VerificationTaskFactory {
     }
 
     public VerificationTask create(String taskType, String customText, int cameraFailures) {
+        ChallengeConfig config = ChallengeConfig.parse(customText);
         return switch (taskType) {
             case "object_detection" -> {
                 if (!cameraAvailable || cameraFailures >= MAX_CAMERA_FAILURES) {
-                    yield MathTask.generate(rng);
+                    yield config.questions() > 1
+                            ? SeriesTask.start("math", config, rng)
+                            : MathTask.generate(rng, config.difficulty());
                 }
                 yield ObjectDetectionTask.generate(rng, detector);
             }
-            case "math" -> MathTask.generate(rng);
-            case "trivia" -> TriviaTask.generate(rng);
-            case "custom" -> new CustomTask(customText);
+            case "math" -> config.questions() > 1
+                    ? SeriesTask.start("math", config, rng)
+                    : MathTask.generate(rng, config.difficulty());
+            case "trivia" -> config.questions() > 1
+                    ? SeriesTask.start("trivia", config, rng)
+                    : TriviaTask.generate(rng);
+            case "custom" -> new CustomTask(
+                    config.text() == null || config.text().isBlank() ? customText : config.text());
             default -> throw new ValidationFailedException("Unknown verification task type '" + taskType + "'");
         };
     }
@@ -44,6 +52,7 @@ public class VerificationTaskFactory {
     public VerificationTask fromState(Map<String, Object> state) {
         String kind = String.valueOf(state.get("type"));
         return switch (kind) {
+            case "series" -> SeriesTask.fromState(state, this);
             case "math" -> new MathTask(
                     ((Number) state.get("a")).intValue(),
                     ((Number) state.get("b")).intValue(),

@@ -116,6 +116,49 @@ esac
 
 
 
+# Prefer a Gradle-compatible JDK (Kotlin DSL breaks on Java 25+ with cryptic "27").
+# Auto-select JDK 23/21 when JAVA_HOME is unset or points at a too-new runtime.
+_riseup_java_major() {
+    # shellcheck disable=SC2039
+    "$1" -version 2>&1 | sed -n 's/.* version "\([0-9][0-9]*\).*/\1/p' | head -n 1
+}
+_riseup_pick_java_home() {
+    if [ -x /usr/libexec/java_home ]; then
+        for _v in 23 21 17; do
+            _cand=$(/usr/libexec/java_home -v "$_v" 2>/dev/null) || true
+            if [ -n "$_cand" ] && [ -x "$_cand/bin/java" ]; then
+                echo "$_cand"
+                return 0
+            fi
+        done
+    fi
+    for _cand in \
+        /Library/Java/JavaVirtualMachines/jdk-23.jdk/Contents/Home \
+        /Library/Java/JavaVirtualMachines/temurin-23.jdk/Contents/Home \
+        /Library/Java/JavaVirtualMachines/temurin-21.jdk/Contents/Home \
+        /opt/homebrew/opt/openjdk@23/libexec/openjdk.jdk/Contents/Home \
+        /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+    do
+        if [ -x "$_cand/bin/java" ]; then
+            echo "$_cand"
+            return 0
+        fi
+    done
+    return 1
+}
+_probe_java=java
+if [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+    _probe_java=$JAVA_HOME/bin/java
+fi
+_major=$(_riseup_java_major "$_probe_java" 2>/dev/null || true)
+if [ -z "$_major" ] || [ "$_major" -ge 25 ] 2>/dev/null; then
+    _picked=$(_riseup_pick_java_home) || true
+    if [ -n "$_picked" ]; then
+        JAVA_HOME=$_picked
+        export JAVA_HOME
+    fi
+fi
+
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then

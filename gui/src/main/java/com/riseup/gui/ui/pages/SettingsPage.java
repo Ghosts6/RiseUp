@@ -26,14 +26,17 @@ import java.util.Map;
 import java.util.Set;
 
 public class SettingsPage extends VBox {
-    private static final String[] CHANNELS = {"push", "sms", "call", "email"};
+    private static final String[] CHANNELS = {"push", "sms", "call", "alexa", "email"};
+    private static final String[] ESCALATION_ORDER = {"call", "sms", "alexa", "push", "emergency_contact"};
 
     private final ApiClient api;
     private final MainShell shell;
     private final VBox contactsBox = new VBox(8);
     private final VBox statusBox = new VBox(8);
     private final Set<String> enabledChannels = new LinkedHashSet<>();
+    private final List<String> escalationOrder = new ArrayList<>();
     private final List<ToggleButton> channelToggles = new ArrayList<>();
+    private final Label orderPreview = UiKit.muted("");
 
     private final TextField name = UiKit.textField("Your name", "");
     private final TextField phone = UiKit.textField("Phone with country code", "");
@@ -53,14 +56,16 @@ public class SettingsPage extends VBox {
         getChildren().add(Panels.pageHeader(
                 "Preferences",
                 "Settings",
-                "Plain-language controls — nothing that looks like code."));
+                "Plain-language controls. Nothing that looks like code."));
 
         checkinDelay.getItems().addAll("5 minutes", "10 minutes", "15 minutes", "30 minutes");
         checkinDelay.getSelectionModel().select("10 minutes");
         checkinDelay.setMaxWidth(Double.MAX_VALUE);
-        defaultTask.getItems().addAll("math", "trivia", "object_detection", "custom");
-        defaultTask.getSelectionModel().select("math");
+        defaultTask.getItems().addAll("Math", "Trivia", "Photo object", "Custom");
+        defaultTask.getSelectionModel().select("Math");
         defaultTask.setMaxWidth(Double.MAX_VALUE);
+        UiKit.openComboDown(defaultTask);
+        UiKit.openComboDown(checkinDelay);
 
         FlowPane channelRow = new FlowPane(8, 8);
         for (String ch : CHANNELS) {
@@ -99,6 +104,31 @@ public class SettingsPage extends VBox {
         testSms.getStyleClass().add("ghost-btn");
         Button testCall = new Button("Test call");
         testCall.getStyleClass().add("ghost-btn");
+        Button testAlexa = new Button("Test Alexa");
+        testAlexa.getStyleClass().add("ghost-btn");
+
+        FlowPane orderRow = new FlowPane(8, 8);
+        for (String step : ESCALATION_ORDER) {
+            Button bump = new Button(prettyChannel(step));
+            bump.getStyleClass().add("filter-chip");
+            bump.setOnAction(e -> {
+                if (!escalationOrder.contains(step)) {
+                    escalationOrder.add(step);
+                } else {
+                    escalationOrder.remove(step);
+                    escalationOrder.add(step);
+                }
+                refreshOrderPreview();
+            });
+            orderRow.getChildren().add(bump);
+        }
+        Button resetOrder = new Button("Reset order");
+        resetOrder.getStyleClass().add("ghost-btn");
+        resetOrder.setOnAction(e -> {
+            escalationOrder.clear();
+            escalationOrder.addAll(List.of(ESCALATION_ORDER));
+            refreshOrderPreview();
+        });
 
         Runnable doLoad = () -> UiKit.runBusy(reload, "Loading…", this::loadAll);
         reload.setOnAction(e -> doLoad.run());
@@ -115,11 +145,12 @@ public class SettingsPage extends VBox {
                     body.put("name", name.getText().trim());
                     body.put("phone", phone.getText().trim());
                     body.put("enabled_channels", new ArrayList<>(enabledChannels));
+                    body.put("escalation_order", new ArrayList<>(escalationOrder));
                     body.put("quiet_hours_start", blankToNull(quietStart.getText()));
                     body.put("quiet_hours_end", blankToNull(quietEnd.getText()));
                     body.put("checkin_enabled", checkin.isSelected());
                     body.put("checkin_delay_minutes", parseMinutes(checkinDelay.getValue(), 10));
-                    body.put("default_task_type", defaultTask.getValue());
+                    body.put("default_task_type", challengeToApi(defaultTask.getValue()));
                     api.patch("/api/prefs", body);
                     shell.toastOk("Settings saved.");
                     loadAll();
@@ -154,6 +185,7 @@ public class SettingsPage extends VBox {
         testPush.setOnAction(e -> testChannel("push"));
         testSms.setOnAction(e -> testChannel("sms"));
         testCall.setOnAction(e -> testChannel("call"));
+        testAlexa.setOnAction(e -> testChannel("alexa"));
 
         getChildren().addAll(
                 Panels.card("Profile",
@@ -162,6 +194,10 @@ public class SettingsPage extends VBox {
                 Panels.card("Notifications",
                         UiKit.muted("Tap to enable the ways RiseUp can reach you"),
                         channelRow,
+                        UiKit.muted("Escalation order — tap to move a channel to the end"),
+                        orderRow,
+                        orderPreview,
+                        Panels.actionRow(resetOrder),
                         UiKit.labeled("Quiet hours start", quietStart),
                         UiKit.labeled("Quiet hours end", quietEnd),
                         checkin,
@@ -177,7 +213,7 @@ public class SettingsPage extends VBox {
                         statusBox),
                 Panels.card("Try a test ping",
                         UiKit.muted("Sends a harmless test through each channel"),
-                        Panels.actionRow(testPush, testSms, testCall)));
+                        Panels.actionRow(testPush, testSms, testCall, testAlexa)));
         doLoad.run();
         javafx.application.Platform.runLater(name::requestFocus);
     }
@@ -195,9 +231,7 @@ public class SettingsPage extends VBox {
             int delay = prefs.path("checkin_delay_minutes").asInt(10);
             checkinDelay.getSelectionModel().select(delay + " minutes");
             String task = prefs.path("default_task_type").asText("math");
-            if (defaultTask.getItems().contains(task)) {
-                defaultTask.getSelectionModel().select(task);
-            }
+            defaultTask.getSelectionModel().select(challengeFromApi(task));
 
             enabledChannels.clear();
             if (prefs.path("enabled_channels").isArray()) {
@@ -213,6 +247,14 @@ public class SettingsPage extends VBox {
                 }
             }
 
+            escalationOrder.clear();
+            if (prefs.path("escalation_order").isArray() && !prefs.path("escalation_order").isEmpty()) {
+                prefs.path("escalation_order").forEach(n -> escalationOrder.add(n.asText()));
+            } else {
+                escalationOrder.addAll(List.of(ESCALATION_ORDER));
+            }
+            refreshOrderPreview();
+
             contactsBox.getChildren().clear();
             JsonNode contacts = p.path("contacts");
             if (!contacts.isArray() || contacts.isEmpty()) {
@@ -226,7 +268,7 @@ public class SettingsPage extends VBox {
             }
 
             statusBox.getChildren().clear();
-            statusBox.getChildren().add(statusRow("♫", "Notifications",
+            statusBox.getChildren().add(statusRow("◉", "Notifications",
                     summarizeMap(p.path("integrations"))));
             statusBox.getChildren().add(statusRow("✦", "AI helpers",
                     summarizeMap(p.path("llm"))));
@@ -252,8 +294,24 @@ public class SettingsPage extends VBox {
         VBox text = new VBox(2, title, meta);
         HBox.setHgrow(text, Priority.ALWAYS);
 
+        Button test = new Button("Test");
+        test.getStyleClass().add("ghost-btn");
+        test.setOnAction(e -> {
+            try {
+                JsonNode result = api.post("/api/contacts/" + id + "/test", Map.of());
+                boolean ok = result.path("success").asBoolean(true);
+                if (ok) {
+                    shell.toastOk("Test sent to " + nm + ".");
+                } else {
+                    shell.toastError(result.path("detail").asText("Test failed"));
+                }
+            } catch (Exception ex) {
+                shell.toastError(ex.getMessage());
+            }
+        });
+
         Button remove = new Button("Remove");
-        remove.getStyleClass().add("ghost-btn");
+        remove.getStyleClass().add("danger-btn");
         remove.setOnAction(e -> {
             if (!UiKit.confirm(this, "Remove contact", "Remove “" + nm + "”?")) {
                 return;
@@ -267,7 +325,7 @@ public class SettingsPage extends VBox {
             }
         });
 
-        HBox row = new HBox(12, UiKit.statusBadge(consent), text, remove);
+        HBox row = new HBox(12, UiKit.statusBadge(consent), text, test, remove);
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("item-row");
         return row;
@@ -310,6 +368,14 @@ public class SettingsPage extends VBox {
         return node.asText(node.toString());
     }
 
+    private void refreshOrderPreview() {
+        if (escalationOrder.isEmpty()) {
+            orderPreview.setText("No escalation order set");
+        } else {
+            orderPreview.setText("Order: " + String.join(" → ", escalationOrder.stream().map(SettingsPage::prettyChannel).toList()));
+        }
+    }
+
     private void testChannel(String channel) {
         try {
             JsonNode result = api.post("/api/prefs/test", Map.of("channel", channel));
@@ -323,6 +389,40 @@ public class SettingsPage extends VBox {
         } catch (Exception ex) {
             shell.toastError(ex.getMessage());
         }
+    }
+
+    private static String challengeFromApi(String raw) {
+        if (raw == null) {
+            return "Math";
+        }
+        String key = raw.toLowerCase(Locale.ROOT);
+        if ("trivia".equals(key)) {
+            return "Trivia";
+        }
+        if ("object_detection".equals(key) || "photo".equals(key) || "photo object".equals(key)) {
+            return "Photo object";
+        }
+        if ("custom".equals(key)) {
+            return "Custom";
+        }
+        return "Math";
+    }
+
+    private static String challengeToApi(String label) {
+        if (label == null) {
+            return "math";
+        }
+        String key = label.toLowerCase(Locale.ROOT);
+        if ("trivia".equals(key)) {
+            return "trivia";
+        }
+        if ("photo object".equals(key)) {
+            return "object_detection";
+        }
+        if ("custom".equals(key)) {
+            return "custom";
+        }
+        return "math";
     }
 
     private static String prettyChannel(String ch) {

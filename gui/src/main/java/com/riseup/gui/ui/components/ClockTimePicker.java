@@ -13,7 +13,6 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.shape.Rectangle;
 
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -75,19 +74,9 @@ public class ClockTimePicker extends VBox {
         GridPane.setHgrow(minuteWheel, Priority.ALWAYS);
         GridPane.setHgrow(ampmToggle, Priority.ALWAYS);
 
-        StackPane stage = new StackPane();
+        StackPane stage = new StackPane(wheels);
         stage.getStyleClass().add("clock-stage");
         stage.setMaxWidth(Double.MAX_VALUE);
-        Rectangle highlight = new Rectangle();
-        highlight.getStyleClass().add("clock-highlight");
-        highlight.setManaged(false);
-        highlight.setMouseTransparent(true);
-        highlight.widthProperty().bind(stage.widthProperty().subtract(20));
-        highlight.setHeight(56);
-        highlight.setArcWidth(16);
-        highlight.setArcHeight(16);
-        StackPane.setAlignment(highlight, Pos.CENTER);
-        stage.getChildren().addAll(highlight, wheels);
 
         preview.getStyleClass().add("clock-preview");
         getChildren().addAll(stage, preview);

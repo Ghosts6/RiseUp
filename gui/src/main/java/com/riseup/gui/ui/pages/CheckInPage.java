@@ -31,11 +31,11 @@ public class CheckInPage extends VBox {
         getChildren().add(Panels.pageHeader(
                 "Still awake?",
                 "Check-in",
-                "Prove you’re up — if time runs out, the alarm rings again."));
+                "Prove you’re up. If time runs out, the alarm rings again."));
 
         Challenge ch = Challenge.random();
 
-        Label timer = new Label("⏱  90s left");
+        Label timer = new Label("◷  90s left");
         timer.getStyleClass().add("page-kicker");
         Label question = new Label(ch.prompt());
         question.getStyleClass().add("challenge-text");
@@ -52,7 +52,7 @@ public class CheckInPage extends VBox {
             if (countdown != null) {
                 countdown.stop();
             }
-            status.setText("Time’s up — ringing the alarm again.");
+            status.setText("Time’s up. Ringing the alarm again.");
             shell.toastError("Check-in timed out. Alarm is ringing again.");
             if (alarmId != null) {
                 try {
@@ -68,7 +68,7 @@ public class CheckInPage extends VBox {
 
         countdown = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             secondsLeft--;
-            timer.setText("⏱  " + secondsLeft + "s left");
+            timer.setText("◷  " + secondsLeft + "s left");
             if (secondsLeft <= 0) {
                 failAndRering.run();
             }
@@ -84,7 +84,7 @@ public class CheckInPage extends VBox {
                 return;
             }
             if (!ch.matches(given)) {
-                shell.toastError("Not quite — try again before time runs out.");
+                shell.toastError("Not quite. Try again before time runs out.");
                 answer.clear();
                 answer.requestFocus();
                 return;

@@ -27,7 +27,10 @@ public class RiseUpApp extends Application {
         stage.setTitle("RiseUp");
         stage.setScene(scene);
         stage.show();
-        ws.connect(shell::onLiveEvent);
+        ws.connect(
+                shell::onLiveEvent,
+                () -> shell.setConnectionState(true),
+                () -> shell.setConnectionState(false));
         stage.setOnCloseRequest(e -> ws.close());
     }
 

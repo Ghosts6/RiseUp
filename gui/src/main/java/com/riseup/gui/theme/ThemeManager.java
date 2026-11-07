@@ -6,6 +6,7 @@ import javafx.util.Duration;
 
 public class ThemeManager {
     private boolean dark;
+    private Runnable onChanged = () -> {};
 
     public void apply(Scene scene, boolean darkMode) {
         this.dark = darkMode;
@@ -14,6 +15,7 @@ public class ThemeManager {
         if (darkMode) {
             root.getStyleClass().add("dark");
         }
+        onChanged.run();
     }
 
     public void toggle(Scene scene) {
@@ -27,12 +29,17 @@ public class ThemeManager {
             if (next) {
                 scene.getRoot().getStyleClass().add("dark");
             }
+            onChanged.run();
             FadeTransition fadeIn = new FadeTransition(Duration.millis(140), scene.getRoot());
             fadeIn.setFromValue(0.86);
             fadeIn.setToValue(1);
             fadeIn.play();
         });
         fadeOut.play();
+    }
+
+    public void setOnChanged(Runnable onChanged) {
+        this.onChanged = onChanged == null ? () -> {} : onChanged;
     }
 
     public boolean isDark() {

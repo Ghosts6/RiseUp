@@ -347,6 +347,6 @@ This file is the **canonical F01–F14** definition. Other docs must match it:
 
 **Agent involvement:** F04/F05/F07/F09/F13 go through `AgentController` observe→decide→act→re-observe when tools are used. Memory: `UserProfile` + `EscalationLog`.
 
-**Models:** `claude-sonnet-4-5` (default escalation/recommendations), `gpt-4o` (default NL parse), both via `LLMProvider`.
+**Models:** `claude-sonnet-5` (default escalation/recommendations), `gpt-4o` (default NL parse), both via `LLMProvider`.
 
 **Patterns in CLI:** Command + Strategy (`OutputFormatter`). `APIClient` may act as a small HTTP Facade but is not required for the five-pattern minimum.

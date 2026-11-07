@@ -60,7 +60,7 @@ public final class UiKit {
     }
 
     public static Label statusBadge(String status) {
-        Label badge = new Label(status == null ? "—" : status);
+        Label badge = new Label(status == null ? "None" : status);
         badge.getStyleClass().add("badge");
         String s = status == null ? "" : status.toLowerCase();
         if (s.contains("active") || s.contains("pending") || s.equals("ok") || s.equals("scheduled")) {

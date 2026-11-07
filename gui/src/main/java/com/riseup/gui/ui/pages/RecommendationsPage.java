@@ -19,7 +19,7 @@ import java.util.Map;
 public class RecommendationsPage extends VBox {
     private final ApiClient api;
     private final MainShell shell;
-    private final VBox listBox = new VBox(10);
+    private final VBox listBox = new VBox(0);
     private final Label hint = UiKit.muted("");
     private final List<JsonNode> cache = new ArrayList<>();
 
@@ -102,7 +102,7 @@ public class RecommendationsPage extends VBox {
         Button accept = new Button("Accept");
         accept.getStyleClass().add("primary-btn");
         Button dismiss = new Button("Dismiss");
-        dismiss.getStyleClass().add("ghost-btn");
+        dismiss.getStyleClass().add("danger-btn");
 
         boolean closed = status.toLowerCase().contains("accept")
                 || status.toLowerCase().contains("dismiss");

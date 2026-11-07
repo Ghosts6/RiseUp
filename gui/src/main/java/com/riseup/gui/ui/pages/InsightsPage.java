@@ -11,15 +11,19 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class InsightsPage extends VBox {
     private final ApiClient api;
     private final MainShell shell;
     private final VBox content = new VBox(14);
+    private int rangeDays = 30;
 
     public InsightsPage(ApiClient api, MainShell shell) {
         this.api = api;
@@ -31,10 +35,18 @@ public class InsightsPage extends VBox {
         getChildren().add(Panels.pageHeader(
                 "Your week in mornings",
                 "Insights",
-                "A friendly read on how you’re waking up — no spreadsheets."));
+                "A friendly read on how you’re waking up — with simple charts."));
+
+        Button d7 = UiKit.filterChip("7 days");
+        Button d30 = UiKit.filterChip("30 days");
+        Button d90 = UiKit.filterChip("90 days");
+        UiKit.selectFilter(d30, d7, d30, d90);
+        d7.setOnAction(e -> { rangeDays = 7; UiKit.selectFilter(d7, d7, d30, d90); load(); });
+        d30.setOnAction(e -> { rangeDays = 30; UiKit.selectFilter(d30, d7, d30, d90); load(); });
+        d90.setOnAction(e -> { rangeDays = 90; UiKit.selectFilter(d90, d7, d30, d90); load(); });
 
         Button refresh = new Button("Refresh");
-        refresh.getStyleClass().add("primary-btn");
+        refresh.getStyleClass().add("ghost-btn");
         Button recompute = new Button("Refresh my profile");
         recompute.getStyleClass().add("secondary-btn");
 
@@ -59,17 +71,19 @@ public class InsightsPage extends VBox {
         });
 
         content.setFillWidth(true);
-        getChildren().addAll(Panels.actionRow(refresh, recompute), content);
+        getChildren().addAll(
+                Panels.actionRow(d7, d30, d90, refresh, recompute),
+                content);
         load();
     }
 
     private void load() {
         content.getChildren().clear();
         try {
-            JsonNode stats = api.get("/api/stats?range=30d");
+            JsonNode stats = api.get("/api/stats?range=" + rangeDays + "d");
             JsonNode profile = api.get("/api/profile");
 
-            int days = stats.path("range_days").asInt(30);
+            int days = stats.path("range_days").asInt(rangeDays);
             long triggered = stats.path("alarms_triggered").asLong(0);
             long verified = stats.path("alarms_verified").asLong(0);
             long missed = stats.path("alarms_missed").asLong(0);
@@ -82,13 +96,13 @@ public class InsightsPage extends VBox {
             String vibeBlurb;
             if (triggered == 0) {
                 vibe = "Getting started";
-                vibeBlurb = "Set a few alarms and come back — your story starts after the first ring.";
+                vibeBlurb = "Set a few alarms and come back. Your story starts after the first ring.";
             } else if (pct >= 80) {
                 vibe = "On a roll";
                 vibeBlurb = "You’re dismissing alarms like a pro. Keep that streak warm.";
             } else if (pct >= 50) {
                 vibe = "Solid mornings";
-                vibeBlurb = "More wins than misses — a little consistency will push you over the top.";
+                vibeBlurb = "More wins than misses. A little consistency will push you over the top.";
             } else {
                 vibe = "Room to rise";
                 vibeBlurb = "Tough mornings happen. Try an easier challenge or earlier bedtime.";
@@ -102,7 +116,7 @@ public class InsightsPage extends VBox {
             statsRow.setMaxWidth(Double.MAX_VALUE);
             statsRow.getChildren().addAll(
                     statTile("☀", "Wake score", pct + "%", "alarms you finished"),
-                    statTile("🔔", "Rings", String.valueOf(triggered), "alarms that went off"),
+                    statTile("◉", "Rings", String.valueOf(triggered), "alarms that went off"),
                     statTile("✓", "Verified", String.valueOf(verified), "you proved you’re up"),
                     statTile("☾", "Missed", String.valueOf(missed), "slipped past you"),
                     statTile("↗", "Escalations", String.valueOf(escalations), "backup nudges"),
@@ -110,16 +124,23 @@ public class InsightsPage extends VBox {
             );
             content.getChildren().add(Panels.card("At a glance", statsRow));
 
+            Map<String, Long> bars = new LinkedHashMap<>();
+            bars.put("Verified", verified);
+            bars.put("Missed", missed);
+            bars.put("Escalations", escalations);
+            bars.put("Tasks", reminders);
+            content.getChildren().add(Panels.card("Activity chart", barChart(bars)));
+
             VBox story = new VBox(8);
-            story.getChildren().add(storyLine("🔔",
+            story.getChildren().add(storyLine("◉",
                     triggered == 0 ? "No alarms rang yet in this window."
                             : "RiseUp woke you " + triggered + " time" + (triggered == 1 ? "" : "s") + "."));
             story.getChildren().add(storyLine("✓",
-                    verified == 0 ? "No verifications yet — the challenge is waiting."
+                    verified == 0 ? "No verifications yet. The challenge is waiting."
                             : "You cleared " + verified + " of those with a challenge."));
             if (missed > 0) {
                 story.getChildren().add(storyLine("☾",
-                        missed + " got away — snooze less, or pick a gentler task."));
+                        missed + " got away. Snooze less, or pick a gentler task."));
             }
             if (escalations > 0) {
                 story.getChildren().add(storyLine("↗",
@@ -155,6 +176,38 @@ public class InsightsPage extends VBox {
             content.getChildren().add(UiKit.emptyState("Couldn’t load insights", ex.getMessage()));
             shell.toastError(ex.getMessage());
         }
+    }
+
+    private static HBox barChart(Map<String, Long> values) {
+        long max = values.values().stream().mapToLong(Long::longValue).max().orElse(1);
+        if (max < 1) {
+            max = 1;
+        }
+        HBox chart = new HBox(18);
+        chart.setAlignment(Pos.BOTTOM_LEFT);
+        chart.setPrefHeight(160);
+        chart.getStyleClass().add("insight-chart");
+        for (Map.Entry<String, Long> e : values.entrySet()) {
+            double ratio = e.getValue() / (double) max;
+            Region bar = new Region();
+            bar.getStyleClass().add("insight-bar");
+            bar.setPrefWidth(42);
+            bar.setMinHeight(8);
+            bar.setPrefHeight(Math.max(8, 120 * ratio));
+            Label val = new Label(String.valueOf(e.getValue()));
+            val.getStyleClass().add("muted");
+            Label name = new Label(e.getKey());
+            name.getStyleClass().add("muted");
+            VBox col = new VBox(6, val, bar, name);
+            col.setAlignment(Pos.BOTTOM_CENTER);
+            chart.getChildren().add(col);
+        }
+        if (values.values().stream().allMatch(v -> v == 0)) {
+            StackPane empty = new StackPane(UiKit.muted("No activity in this range yet"));
+            empty.setPrefHeight(120);
+            return new HBox(empty);
+        }
+        return chart;
     }
 
     private static VBox statTile(String icon, String title, String value, String hint) {
@@ -199,7 +252,7 @@ public class InsightsPage extends VBox {
         HBox.setHgrow(text, Priority.ALWAYS);
         HBox row = new HBox(12, ic, text);
         row.setAlignment(Pos.TOP_LEFT);
-        row.getStyleClass().add("item-row");
+        row.getStyleClass().addAll("item-row", "standalone");
         return row;
     }
 
@@ -213,7 +266,7 @@ public class InsightsPage extends VBox {
 
     private static String friendlyValue(JsonNode node) {
         if (node == null || node.isNull()) {
-            return "—";
+            return "None";
         }
         if (node.isNumber()) {
             double d = node.asDouble();
@@ -243,9 +296,9 @@ public class InsightsPage extends VBox {
                 }
                 sb.append(humanizeKey(e.getKey())).append(": ").append(friendlyValue(e.getValue()));
             });
-            return sb.isEmpty() ? "—" : sb.toString();
+            return sb.isEmpty() ? "None" : sb.toString();
         }
         String text = node.asText();
-        return text.isBlank() ? "—" : text;
+        return text.isBlank() ? "None" : text;
     }
 }

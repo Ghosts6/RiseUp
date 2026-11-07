@@ -35,4 +35,8 @@ public record LiveEvent(
         return "alarm".equals(subjectType)
                 && ("ringing".equals(status) || "escalating".equals(status));
     }
+
+    public boolean isCheckIn() {
+        return "alarm".equals(subjectType) && "awaiting_checkin".equals(status);
+    }
 }

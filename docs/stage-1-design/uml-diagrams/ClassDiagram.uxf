@@ -868,7 +868,7 @@ bg=#FCE4EC</panel_attributes>
     </coordinates>
     <panel_attributes>*ClaudeProvider*
 --
-+model: claude-sonnet-4-5
++model: claude-sonnet-5
 bg=#E8F5E9</panel_attributes>
     <additional_attributes/>
   </element>

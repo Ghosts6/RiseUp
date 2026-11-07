@@ -58,22 +58,20 @@ public class AlarmRingingPage extends VBox {
         Button verify = new Button("Verify & dismiss");
         verify.getStyleClass().add("primary-btn");
         Button photo = new Button("Attach photo");
-        photo.getStyleClass().add("ghost-btn");
+        photo.getStyleClass().add("secondary-btn");
         Button snooze = new Button("Snooze");
-        snooze.getStyleClass().add("danger-btn");
-        Button back = new Button("Back to dashboard");
+        snooze.getStyleClass().add("ghost-btn");
+        Button back = new Button("Stay on challenge");
         back.getStyleClass().add("ghost-btn");
+        back.setDisable(true);
+        back.setTooltip(new javafx.scene.control.Tooltip("Complete or snooze the challenge to leave."));
 
         final String[] imageBase64 = {null};
         final Integer[] idHolder = {alarmId};
         final String[] soundName = {"classic"};
 
         Runnable stopSound = soundPlayer::stop;
-        back.setOnAction(e -> {
-            stopTimers();
-            stopSound.run();
-            shell.navigate("Dashboard");
-        });
+        back.setOnAction(e -> shell.toastError("Finish the challenge or snooze before leaving."));
 
         if (alarmId == null) {
             verify.setDisable(true);
@@ -219,7 +217,7 @@ public class AlarmRingingPage extends VBox {
                             load.run();
                         }
                     } else {
-                        shell.toastError(msg.isBlank() ? "Not quite — try again." : msg);
+                        shell.toastError(msg.isBlank() ? "Not quite. Try again." : msg);
                         if (result.has("challenge")) {
                             renderChallenge.accept(result.path("challenge"));
                         } else {
@@ -239,7 +237,7 @@ public class AlarmRingingPage extends VBox {
                 api.post("/api/alarms/" + idHolder[0] + "/snooze", Map.of());
                 stopTimers();
                 stopSound.run();
-                shell.toastOk("Snoozed — it’ll ring again shortly.");
+                shell.toastOk("Snoozed. It’ll ring again shortly.");
                 shell.navigate("Dashboard");
             } catch (Exception ex) {
                 shell.toastError(UiKit.userError(ex));
@@ -252,7 +250,8 @@ public class AlarmRingingPage extends VBox {
                 choices,
                 UiKit.labeled("Your answer", answer),
                 photoLabel,
-                Panels.actionRow(verify, reload, photo, snooze, back),
+                Panels.actionRow(verify, reload, photo),
+                Panels.actionRow(snooze, back),
                 status);
         panel.getStyleClass().add("ringing-panel");
 

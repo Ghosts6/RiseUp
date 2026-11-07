@@ -44,7 +44,7 @@ RiseUp is an intelligent alarm and task-reminder system with:
 ### AI / LLM models
 | Provider | Model | Default use |
 |----------|-------|-------------|
-| Anthropic | `claude-sonnet-4-5` | Escalation, recommendations, prioritization |
+| Anthropic | `claude-sonnet-5` | Escalation, recommendations, prioritization |
 | OpenAI | `gpt-4o` | Natural-language reminder parsing |
 
 Both implement `LLMProvider` (Strategy). `LLMClient` selects the configured provider.

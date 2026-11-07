@@ -1,23 +1,17 @@
 package com.riseup.gui.ui.components;
 
+import com.riseup.gui.ui.MainShell;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
-import javafx.scene.effect.GaussianBlur;
-import javafx.scene.image.ImageView;
-import javafx.scene.image.WritableImage;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.stage.Modality;
-import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import javafx.stage.Window;
 
 import java.time.LocalDate;
@@ -30,8 +24,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /**
- * In-window day/time sheets. Overlay matches the owner window so content never
- * overflows the page; calendar is inline (no nested DatePicker popup).
+ * Day/time sheets over the content area only. Nav/header stay untouched;
+ * no full-window snapshot (that was duplicating the sidebar in the blur).
  */
 public final class DateTimePickers {
     private static final DateTimeFormatter DAY_FMT = DateTimeFormatter.ofPattern("EEE, MMM d yyyy");
@@ -48,7 +42,7 @@ public final class DateTimePickers {
         VBox body = new VBox(12, preview, calendar);
         body.setFillWidth(true);
 
-        return showSheet(owner, "Choose a day", "Tap a date — stays inside the window", body, "Set day",
+        return showSheet(owner, "Choose a day", "Tap a date in the calendar", body, "Set day",
                 calendar::getSelected);
     }
 
@@ -83,14 +77,15 @@ public final class DateTimePickers {
             String confirmLabel,
             Supplier<T> valueSupplier) {
 
-        Stage stage = new Stage(StageStyle.TRANSPARENT);
-        if (owner != null) {
-            stage.initOwner(owner);
+        MainShell shell = findShell(owner);
+        if (shell == null) {
+            return Optional.empty();
         }
-        stage.initModality(Modality.WINDOW_MODAL);
+        StackPane host = shell.modalLayer();
 
         AtomicReference<T> chosen = new AtomicReference<>();
         AtomicBoolean confirmed = new AtomicBoolean(false);
+        Object loopKey = new Object();
 
         Label title = new Label(titleText);
         title.getStyleClass().add("picker-title");
@@ -99,16 +94,10 @@ public final class DateTimePickers {
         Button cancel = new Button("Cancel");
         cancel.getStyleClass().add("ghost-btn");
         cancel.setCancelButton(true);
-        cancel.setOnAction(e -> stage.close());
 
         Button done = new Button(confirmLabel);
         done.getStyleClass().add("primary-btn");
         done.setDefaultButton(true);
-        done.setOnAction(e -> {
-            chosen.set(valueSupplier.get());
-            confirmed.set(true);
-            stage.close();
-        });
 
         HBox actions = new HBox(10, cancel, done);
         actions.setAlignment(Pos.CENTER_RIGHT);
@@ -120,79 +109,70 @@ public final class DateTimePickers {
         sheet.setFillWidth(true);
         sheet.setMaxWidth(420);
         sheet.setPrefWidth(400);
+        sheet.setOnMouseClicked(e -> e.consume());
 
         ScrollPane scroller = new ScrollPane(sheet);
         scroller.setFitToWidth(true);
         scroller.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroller.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroller.getStyleClass().add("picker-scroll");
-        scroller.setMaxWidth(440);
-        // Critical: don't let StackPane stretch this to full window height
-        // (that pinned the sheet to the top of a tall scroll viewport).
-        scroller.setMinSize(Region.USE_PREF_SIZE, Region.USE_PREF_SIZE);
-        scroller.setPrefSize(Region.USE_COMPUTED_SIZE, Region.USE_COMPUTED_SIZE);
+        scroller.setPrefWidth(420);
+        scroller.setMaxWidth(420);
+        scroller.setMinWidth(300);
+        scroller.setMinHeight(Region.USE_PREF_SIZE);
+        scroller.setMaxHeight(Region.USE_PREF_SIZE);
+        scroller.setOnMouseClicked(e -> e.consume());
 
         Region frost = new Region();
         frost.getStyleClass().add("picker-frost");
         frost.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-        frost.setOnMouseClicked(e -> stage.close());
 
-        sheet.setOnMouseClicked(e -> e.consume());
-        scroller.setOnMouseClicked(e -> e.consume());
-
-        StackPane overlay = new StackPane();
-        overlay.getStyleClass().add("root");
-        Node backdrop = buildBlurredBackdrop(owner);
-        if (backdrop != null) {
-            overlay.getChildren().add(backdrop);
-        }
-        overlay.getChildren().addAll(frost, scroller);
+        // Center the sheet in the content column only. Nav/header are outside this layer.
+        StackPane stage = new StackPane(scroller);
+        stage.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        stage.setPickOnBounds(false);
         StackPane.setAlignment(scroller, Pos.CENTER);
-        StackPane.setMargin(scroller, new Insets(28));
-        if (owner != null && owner.getScene() != null
-                && owner.getScene().getRoot().getStyleClass().contains("dark")) {
-            overlay.getStyleClass().add("dark");
-        }
+        StackPane.setMargin(scroller, new Insets(24));
 
-        Scene scene = new Scene(overlay);
-        scene.setFill(javafx.scene.paint.Color.TRANSPARENT);
-        var css = DateTimePickers.class.getResource("/css/app.css");
-        if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
-        }
-        stage.setScene(scene);
+        StackPane overlay = new StackPane(frost, stage);
+        overlay.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        StackPane.setAlignment(stage, Pos.CENTER);
 
-        final double[] maxSheetH = {520};
-        if (owner != null) {
-            stage.setX(owner.getX());
-            stage.setY(owner.getY());
-            stage.setWidth(Math.max(320, owner.getWidth()));
-            stage.setHeight(Math.max(320, owner.getHeight()));
-            maxSheetH[0] = Math.max(280, owner.getHeight() - 56);
-            owner.xProperty().addListener((o, a, b) -> stage.setX(b.doubleValue()));
-            owner.yProperty().addListener((o, a, b) -> stage.setY(b.doubleValue()));
-            owner.widthProperty().addListener((o, a, b) -> {
-                stage.setWidth(Math.max(320, b.doubleValue()));
-                maxSheetH[0] = Math.max(280, owner.getHeight() - 56);
-                fitScrollerToContent(scroller, sheet, maxSheetH[0]);
-            });
-            owner.heightProperty().addListener((o, a, b) -> {
-                stage.setHeight(Math.max(320, b.doubleValue()));
-                maxSheetH[0] = Math.max(280, b.doubleValue() - 56);
-                fitScrollerToContent(scroller, sheet, maxSheetH[0]);
-            });
-        } else {
-            stage.setWidth(460);
-            stage.setHeight(560);
-            maxSheetH[0] = 520;
-        }
+        Runnable close = () -> {
+            host.getChildren().clear();
+            host.setMouseTransparent(true);
+            host.setVisible(false);
+            shell.setContentBlurred(false);
+            Platform.exitNestedEventLoop(loopKey, null);
+        };
 
-        stage.setOnShown(e -> Platform.runLater(() -> fitScrollerToContent(scroller, sheet, maxSheetH[0])));
-        stage.showAndWait();
+        cancel.setOnAction(e -> close.run());
+        frost.setOnMouseClicked(e -> close.run());
+        done.setOnAction(e -> {
+            chosen.set(valueSupplier.get());
+            confirmed.set(true);
+            close.run();
+        });
+
+        double maxSheetH = Math.max(280, host.getHeight() > 0 ? host.getHeight() - 48 : 520);
+        shell.setContentBlurred(true);
+        host.setVisible(true);
+        host.setMouseTransparent(false);
+        host.getChildren().setAll(overlay);
+        Platform.runLater(() -> fitScrollerToContent(scroller, sheet, maxSheetH));
+
+        Platform.enterNestedEventLoop(loopKey);
         return confirmed.get() ? Optional.ofNullable(chosen.get()) : Optional.empty();
     }
 
-    /** Size the scroll host to the sheet so StackPane can truly center it. */
+    private static MainShell findShell(Window owner) {
+        if (owner == null || owner.getScene() == null) {
+            return null;
+        }
+        Node root = owner.getScene().getRoot();
+        return root instanceof MainShell shell ? shell : null;
+    }
+
     private static void fitScrollerToContent(ScrollPane scroller, VBox sheet, double maxH) {
         scroller.applyCss();
         sheet.applyCss();
@@ -204,27 +184,5 @@ public final class DateTimePickers {
         scroller.setMaxHeight(h);
         scroller.setPrefWidth(Math.min(440, width + 8));
         scroller.setMaxWidth(440);
-    }
-
-    private static Node buildBlurredBackdrop(Window owner) {
-        if (owner == null || owner.getScene() == null || owner.getScene().getRoot() == null) {
-            return null;
-        }
-        try {
-            Node root = owner.getScene().getRoot();
-            double w = Math.max(1, owner.getWidth());
-            double h = Math.max(1, owner.getHeight());
-            WritableImage snap = root.snapshot(null, null);
-            ImageView bg = new ImageView(snap);
-            bg.setMouseTransparent(true);
-            bg.setEffect(new GaussianBlur(22));
-            bg.setFitWidth(w);
-            bg.setFitHeight(h);
-            bg.setPreserveRatio(false);
-            bg.setSmooth(true);
-            return bg;
-        } catch (Exception e) {
-            return null;
-        }
     }
 }

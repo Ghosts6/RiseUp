@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.riseup.gui.api.ApiClient;
 import com.riseup.gui.ui.MainShell;
 import com.riseup.gui.ui.components.DateTimePickers;
+import com.riseup.gui.ui.components.Icons;
 import com.riseup.gui.ui.components.Panels;
 import com.riseup.gui.ui.components.SoundPicker;
 import com.riseup.gui.ui.components.UiKit;
@@ -30,14 +31,22 @@ public class TasksPage extends VBox {
 
     private final ApiClient api;
     private final MainShell shell;
-    private final VBox listBox = new VBox(10);
+    private final VBox listBox = new VBox(0);
     private final Label listHint = UiKit.muted("Loading…");
     private String statusFilter = "active";
     private String kindFilter = "all";
     private String composeKind = "task";
+    private Integer editingId = null;
     private LocalDate selectedDay = LocalDate.now();
     private LocalTime selectedTime = LocalTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0);
     private final List<JsonNode> cache = new ArrayList<>();
+    private TextField titleField;
+    private ComboBox<String> priority;
+    private SoundPicker soundPicker;
+    private Button addBtn;
+    private Button kindTask;
+    private Button kindEvent;
+    private Runnable refreshWhen = () -> {};
 
     public TasksPage(ApiClient api, MainShell shell) {
         this.api = api;
@@ -50,24 +59,29 @@ public class TasksPage extends VBox {
                 "Tasks & Events",
                 "Pick Task or Event, choose day & time from popups, and set a sound."));
 
-        Button kindTask = UiKit.filterChip("Task");
-        Button kindEvent = UiKit.filterChip("Event");
+        kindTask = UiKit.filterChip("Task");
+        kindEvent = UiKit.filterChip("Event");
         UiKit.selectFilter(kindTask, kindTask, kindEvent);
 
         TextField nl = UiKit.textField("e.g. Remind me to call Mom tomorrow at 10am", "");
         Button parse = new Button("Fill from text");
         parse.getStyleClass().add("secondary-btn");
 
-        TextField titleField = UiKit.textField("Title", "");
+        titleField = UiKit.textField("Title", "");
 
-        Button dayBtn = whenField("📅  " + DateTimePickers.formatDay(selectedDay));
-        Button timeBtn = whenField("🕐  " + DateTimePickers.formatTime(selectedTime));
+        Button dayBtn = whenField(DateTimePickers.formatDay(selectedDay));
+        Button timeBtn = whenField(DateTimePickers.formatTime(selectedTime));
         HBox.setHgrow(dayBtn, Priority.ALWAYS);
         HBox.setHgrow(timeBtn, Priority.ALWAYS);
+        Icons.setGraphic(dayBtn, Icons.CALENDAR, 16, Icons.LIGHT_ACCENT);
+        Icons.setGraphic(timeBtn, Icons.CLOCK, 16, Icons.LIGHT_ACCENT);
 
-        Runnable refreshWhen = () -> {
-            dayBtn.setText("📅  " + DateTimePickers.formatDay(selectedDay));
-            timeBtn.setText("🕐  " + DateTimePickers.formatTime(selectedTime));
+        refreshWhen = () -> {
+            dayBtn.setText(DateTimePickers.formatDay(selectedDay));
+            timeBtn.setText(DateTimePickers.formatTime(selectedTime));
+            boolean dark = getScene() != null && getScene().getRoot().getStyleClass().contains("dark");
+            Icons.setGraphic(dayBtn, Icons.CALENDAR, 16, Icons.accentColor(dark));
+            Icons.setGraphic(timeBtn, Icons.CLOCK, 16, Icons.accentColor(dark));
         };
 
         dayBtn.setOnAction(e -> DateTimePickers.pickDate(
@@ -83,26 +97,28 @@ public class TasksPage extends VBox {
                     refreshWhen.run();
                 }));
 
-        ComboBox<String> priority = new ComboBox<>();
+        priority = new ComboBox<>();
         priority.getItems().addAll("low", "medium", "high");
         priority.getSelectionModel().select("medium");
         priority.setMaxWidth(Double.MAX_VALUE);
         UiKit.openComboDown(priority);
 
-        SoundPicker soundPicker = new SoundPicker();
+        soundPicker = new SoundPicker();
 
-        Button add = new Button("Add");
-        add.getStyleClass().add("primary-btn");
+        addBtn = new Button("Add");
+        addBtn.getStyleClass().add("primary-btn");
         Button clear = new Button("Clear");
         clear.getStyleClass().add("ghost-btn");
 
         Runnable syncComposeKind = () -> {
-            if ("event".equals(composeKind)) {
+            if (editingId != null) {
+                addBtn.setText("Save changes");
+            } else if ("event".equals(composeKind)) {
                 titleField.setPromptText("What’s the event?");
-                add.setText("Add event");
+                addBtn.setText("Add event");
             } else {
                 titleField.setPromptText("What do you need to do?");
-                add.setText("Add task");
+                addBtn.setText("Add task");
             }
         };
         kindTask.setOnAction(e -> {
@@ -137,7 +153,7 @@ public class TasksPage extends VBox {
                         } catch (Exception ignored) {
                         }
                     }
-                    shell.toastOk("Form filled — review day, time, and sound.");
+                    shell.toastOk("Form filled. Review day, time, and sound.");
                 } else {
                     shell.toastError("Could not understand that.");
                 }
@@ -157,7 +173,7 @@ public class TasksPage extends VBox {
                 shell.toastError("Pick a day and a time.");
                 return;
             }
-            UiKit.runBusy(add, "Saving…", () -> {
+            UiKit.runBusy(addBtn, "Saving…", () -> {
                 try {
                     Map<String, Object> body = new LinkedHashMap<>();
                     body.put("title", title);
@@ -167,10 +183,17 @@ public class TasksPage extends VBox {
                     body.put("repeat_pattern", "none");
                     body.put("notification_type", "push");
                     body.put("notes", JSON.writeValueAsString(Map.of("sound", soundPicker.getSoundKey())));
-                    api.post("/api/reminders", body);
+                    if (editingId != null) {
+                        api.patch("/api/reminders/" + editingId + "?scope=this", body);
+                        shell.toastOk("Updated.");
+                        editingId = null;
+                    } else {
+                        api.post("/api/reminders", body);
+                        shell.toastOk(("event".equals(composeKind) ? "Event" : "Task") + " added.");
+                    }
                     titleField.clear();
                     nl.clear();
-                    shell.toastOk(("event".equals(composeKind) ? "Event" : "Task") + " added.");
+                    syncComposeKind.run();
                     reload();
                     titleField.requestFocus();
                 } catch (Exception ex) {
@@ -178,17 +201,19 @@ public class TasksPage extends VBox {
                 }
             });
         };
-        add.setOnAction(e -> doAdd.run());
+        addBtn.setOnAction(e -> doAdd.run());
         UiKit.onEnter(titleField, doAdd);
 
         clear.setOnAction(e -> {
             nl.clear();
             titleField.clear();
+            editingId = null;
             selectedDay = LocalDate.now();
             selectedTime = LocalTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0);
             refreshWhen.run();
             soundPicker.setSoundKey("classic");
             priority.getSelectionModel().select("medium");
+            syncComposeKind.run();
         });
 
         VBox dayField = UiKit.labeled("Day", dayBtn);
@@ -207,7 +232,7 @@ public class TasksPage extends VBox {
                 whenRow,
                 UiKit.labeled("Sound", soundPicker),
                 UiKit.labeled("Priority", priority),
-                Panels.actionRow(add, clear));
+                Panels.actionRow(addBtn, clear));
 
         Button fActive = UiKit.filterChip("Active");
         Button fDone = UiKit.filterChip("Done");
@@ -229,9 +254,10 @@ public class TasksPage extends VBox {
         refresh.getStyleClass().add("ghost-btn");
         refresh.setOnAction(e -> reload());
 
+        HBox filters = new HBox(8, fActive, fDone, fAllStatus, fKindAll, fKindTask, fKindEvent);
+        filters.setAlignment(Pos.CENTER_LEFT);
         getChildren().addAll(composer, Panels.card("Your list",
-                UiKit.grow(new HBox(8, fActive, fDone, fAllStatus), refresh),
-                new HBox(8, fKindAll, fKindTask, fKindEvent),
+                UiKit.grow(filters, refresh),
                 listHint,
                 listBox));
         reload();
@@ -286,11 +312,14 @@ public class TasksPage extends VBox {
         titleLbl.getStyleClass().add("item-title");
         titleLbl.setWrapText(true);
         Label meta = new Label(prettyKind(kind) + " · " + UiKit.friendlyDue(dueLocal)
-                + " · " + priority + (sound.isBlank() ? "" : " · ♫ " + sound));
+                + " · " + priority + (sound.isBlank() ? "" : " · ◈ " + sound));
         meta.getStyleClass().add("muted");
         VBox text = new VBox(3, titleLbl, meta);
         HBox.setHgrow(text, Priority.ALWAYS);
 
+        Button edit = new Button("Edit");
+        edit.getStyleClass().add("ghost-btn");
+        edit.setOnAction(e -> beginEdit(r));
         Button done = new Button("Done");
         done.getStyleClass().add("primary-btn");
         done.setOnAction(e -> UiKit.runBusy(done, "…", () -> {
@@ -314,7 +343,7 @@ public class TasksPage extends VBox {
             }
         }));
         Button delete = new Button("Delete");
-        delete.getStyleClass().add("ghost-btn");
+        delete.getStyleClass().add("danger-btn");
         delete.setOnAction(e -> {
             if (!UiKit.confirm(this, "Delete", "Delete “" + title + "”?")) return;
             try {
@@ -329,12 +358,42 @@ public class TasksPage extends VBox {
                 || status.toLowerCase(Locale.ROOT).contains("done");
         done.setDisable(completed);
         snooze.setDisable(completed);
+        edit.setDisable(completed);
 
         HBox row = new HBox(14, UiKit.statusBadge(prettyKind(kind)), text,
-                new HBox(8, done, snooze, delete));
+                new HBox(8, edit, done, snooze, delete));
         row.setAlignment(Pos.CENTER_LEFT);
         row.getStyleClass().add("item-row");
         return row;
+    }
+
+    private void beginEdit(JsonNode r) {
+        editingId = r.path("id").asInt();
+        titleField.setText(r.path("title").asText(""));
+        composeKind = normalizeKind(r.path("category").asText("task"));
+        if ("event".equals(composeKind)) {
+            UiKit.selectFilter(kindEvent, kindTask, kindEvent);
+        } else {
+            UiKit.selectFilter(kindTask, kindTask, kindEvent);
+        }
+        priority.getSelectionModel().select(r.path("priority").asText("medium"));
+        String sound = extractSound(r.path("notes").asText(""));
+        if (!sound.isBlank()) {
+            soundPicker.setSoundKey(sound);
+        }
+        String dueVal = r.path("due_local").asText(r.path("due_at").asText(""));
+        if (!dueVal.isBlank()) {
+            try {
+                var dt = UiKit.parseFlexibleDateTime(dueVal.replace(' ', 'T'));
+                selectedDay = dt.toLocalDate();
+                selectedTime = dt.toLocalTime().withSecond(0).withNano(0);
+                refreshWhen.run();
+            } catch (Exception ignored) {
+            }
+        }
+        addBtn.setText("Save changes");
+        titleField.requestFocus();
+        shell.toastOk("Editing in the form above.");
     }
 
     private static String extractSound(String notes) {

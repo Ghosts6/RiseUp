@@ -14,7 +14,7 @@ import javafx.scene.layout.Priority;
 /** Shared sound dropdown with an inline Play button on the right. */
 public class SoundPicker extends HBox {
     private final ComboBox<SoundOption> combo = new ComboBox<>();
-    private final Button play = new Button("▶");
+    private final Button play = new Button();
     private final AlarmSoundPlayer player = new AlarmSoundPlayer();
 
     public SoundPicker() {
@@ -32,9 +32,10 @@ public class SoundPicker extends HBox {
         combo.valueProperty().addListener((o, a, b) -> player.stop());
         UiKit.openComboDown(combo);
 
-        play.getStyleClass().addAll("secondary-btn", "sound-play-btn");
+        play.getStyleClass().addAll("secondary-btn", "sound-play-btn", "icon-btn");
         play.setTooltip(new Tooltip("Preview this sound"));
         play.setMinWidth(44);
+        play.setGraphic(Icons.view(Icons.PLAY, 16, Icons.LIGHT_ACCENT));
         play.setOnAction(e -> {
             SoundOption opt = combo.getValue();
             if (opt == null) {
@@ -47,6 +48,9 @@ public class SoundPicker extends HBox {
         sceneProperty().addListener((obs, o, n) -> {
             if (n == null) {
                 player.stop();
+            } else if (n.getRoot() != null) {
+                boolean dark = n.getRoot().getStyleClass().contains("dark");
+                play.setGraphic(Icons.view(Icons.PLAY, 16, Icons.accentColor(dark)));
             }
         });
     }

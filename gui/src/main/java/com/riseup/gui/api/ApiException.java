@@ -40,14 +40,14 @@ public class ApiException extends RuntimeException {
         String lower = d.toLowerCase();
         if (lower.contains("cannot be disabled") || lower.contains("cannot be deleted")
                 || lower.contains("complete the challenge")) {
-            return "This alarm is ringing — answer the challenge to turn it off. "
+            return "This alarm is ringing. Answer the challenge to turn it off. "
                     + "You can’t dismiss it from the dashboard.";
         }
         if (lower.contains("not ringing")) {
             return "That alarm isn’t ringing right now.";
         }
         if (lower.contains("snooze limit")) {
-            return "You’ve used all your snoozes — finish the challenge to dismiss it.";
+            return "You’ve used all your snoozes. Finish the challenge to dismiss it.";
         }
         if (lower.contains("running") && lower.contains("edit")) {
             return "Finish or snooze the ringing alarm before editing it.";

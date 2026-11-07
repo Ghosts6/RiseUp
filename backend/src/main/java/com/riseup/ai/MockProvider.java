@@ -43,6 +43,40 @@ public class MockProvider implements LLMProvider {
         }
     }
 
+    @Override
+    public String completeChat(List<Map<String, String>> messages, String system) {
+        calls.add("chat:" + (messages == null ? 0 : messages.size()));
+        if ("error".equals(mode)) throw new LLMProviderError("Simulated LLM outage");
+        String last = "";
+        if (messages != null) {
+            for (int i = messages.size() - 1; i >= 0; i--) {
+                Map<String, String> m = messages.get(i);
+                if (m != null && "user".equalsIgnoreCase(String.valueOf(m.get("role")))) {
+                    last = String.valueOf(m.getOrDefault("content", "")).toLowerCase(Locale.ROOT);
+                    break;
+                }
+            }
+        }
+        if (last.contains("escalat") || last.contains("ignore")) {
+            return "If you ignore a ringing alarm or miss check-in, RiseUp’s escalation agent "
+                    + "picks the next channel (call, SMS, Alexa, push, or emergency contact) "
+                    + "using your history and preferences — with safe fallbacks if the LLM is down.";
+        }
+        if (last.contains("task") || last.contains("event") || last.contains("remind")) {
+            return "On Tasks & Events, choose Task or Event, set day/time from the popups, pick a "
+                    + "sound, and optionally use “Fill from text” so the AI parses a natural sentence.";
+        }
+        if (last.contains("challenge") || last.contains("math") || last.contains("trivia")) {
+            return "Alarm challenges (Math, Trivia, Photo object, Custom) stop sleepy dismissals. "
+                    + "Set difficulty and question count under New Alarm → Challenge.";
+        }
+        if (last.contains("sound") || last.contains("tone")) {
+            return "Sounds are grouped as Library, Imported, and Standard. Preview with ▶ before saving.";
+        }
+        return "I’m RiseUp Agent (mock mode). Ask about alarms, challenges, check-in, escalation, "
+                + "tasks/events, sounds, or recommendations — or set OPENAI_API_KEY to use GPT-6 Luna.";
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, Object> handle(String task, Map<String, Object> ctx) {
         return switch (task) {
@@ -51,7 +85,14 @@ public class MockProvider implements LLMProvider {
                     String.valueOf(ctx.getOrDefault("text", "")),
                     String.valueOf(ctx.getOrDefault("now_local", "")));
             case "prioritize" -> prioritize(ctx);
-            case "recommendations" -> Map.of("items", List.of());
+            case "recommendations" -> Map.of(
+                    "items",
+                    List.of(
+                            Map.of(
+                                    "type", "enable_sms",
+                                    "title", "Enable SMS fallback",
+                                    "rationale", "Mock tip: SMS helps when calls fail.",
+                                    "change", Map.of("add_channel", "sms"))));
             default -> Map.of("error", "unknown task " + task);
         };
     }

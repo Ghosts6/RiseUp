@@ -44,12 +44,13 @@ riseup:
   camera-available: ${CAMERA_AVAILABLE:true}
   openai-api-key: ${OPENAI_API_KEY:}
   claude-api-key: ${CLAUDE_API_KEY:}
-  claude-model: ${CLAUDE_MODEL:claude-sonnet-4-5}
-  openai-model: ${OPENAI_MODEL:gpt-4o}
+  claude-model: ${CLAUDE_MODEL:claude-sonnet-5}
+  openai-model: ${OPENAI_MODEL:gpt-6-luna}
   llm-escalation-provider: ${LLM_ESCALATION_PROVIDER:claude}
   llm-parse-provider: ${LLM_PARSE_PROVIDER:openai}
   llm-prioritize-provider: ${LLM_PRIORITIZE_PROVIDER:claude}
   llm-recommend-provider: ${LLM_RECOMMEND_PROVIDER:claude}
+  llm-chat-provider: ${LLM_CHAT_PROVIDER:openai}
   mock-llm-mode: ${MOCK_LLM_MODE:normal}
   twilio-account-sid: ${TWILIO_ACCOUNT_SID:}
   twilio-auth-token: ${TWILIO_AUTH_TOKEN:}

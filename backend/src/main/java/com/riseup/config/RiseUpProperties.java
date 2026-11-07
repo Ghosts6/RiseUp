@@ -31,12 +31,13 @@ public class RiseUpProperties {
     private int maxAlarmsPerUser = 20;
     private String openaiApiKey = "";
     private String claudeApiKey = "";
-    private String claudeModel = "claude-sonnet-4-5";
-    private String openaiModel = "gpt-4o";
+    private String claudeModel = "claude-sonnet-5";
+    private String openaiModel = "gpt-6-luna";
     private String llmEscalationProvider = "claude";
     private String llmParseProvider = "openai";
     private String llmPrioritizeProvider = "claude";
     private String llmRecommendProvider = "claude";
+    private String llmChatProvider = "openai";
     private String mockLlmMode = "normal";
     private String twilioAccountSid = "";
     private String twilioAuthToken = "";
@@ -130,6 +131,8 @@ public class RiseUpProperties {
     public void setLlmPrioritizeProvider(String llmPrioritizeProvider) { this.llmPrioritizeProvider = llmPrioritizeProvider; }
     public String getLlmRecommendProvider() { return llmRecommendProvider; }
     public void setLlmRecommendProvider(String llmRecommendProvider) { this.llmRecommendProvider = llmRecommendProvider; }
+    public String getLlmChatProvider() { return llmChatProvider; }
+    public void setLlmChatProvider(String llmChatProvider) { this.llmChatProvider = llmChatProvider; }
     public String getMockLlmMode() { return mockLlmMode; }
     public void setMockLlmMode(String mockLlmMode) { this.mockLlmMode = mockLlmMode; }
     public String getTwilioAccountSid() { return twilioAccountSid; }

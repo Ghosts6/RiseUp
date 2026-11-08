@@ -31,7 +31,7 @@ public class TableFormatter implements OutputFormatter {
                     List<String> cells = new ArrayList<>();
                     for (String c : cols) {
                         JsonNode v = row.get(c);
-                        cells.add(v == null || v.isNull() ? "-" : v.asText());
+                        cells.add(v == null || v.isNull() ? "-" : v.isContainerNode() ? v.toString() : v.asText());
                     }
                     sb.append(String.join(" | ", cells)).append('\n');
                 }
@@ -40,10 +40,38 @@ public class TableFormatter implements OutputFormatter {
         }
         if (node.isObject()) {
             StringBuilder sb = new StringBuilder();
-            node.fields().forEachRemaining(e ->
-                sb.append("  ").append(e.getKey()).append(" : ").append(e.getValue().asText()).append('\n'));
+            appendObject(sb, node, "  ");
             return sb.toString().stripTrailing();
         }
         return node.asText();
+    }
+
+    /** key : value lines; nested objects become indented sub-blocks instead of blank values. */
+    private void appendObject(StringBuilder sb, JsonNode obj, String indent) {
+        obj.fields().forEachRemaining(e -> {
+            JsonNode v = e.getValue();
+            if (v.isContainerNode() && v.isEmpty()) {
+                sb.append(indent).append(e.getKey()).append(" : (none)").append('\n');
+            } else if (v.isObject()) {
+                sb.append(indent).append(e.getKey()).append(" :").append('\n');
+                appendObject(sb, v, indent + "  ");
+            } else if (v.isArray()) {
+                boolean scalars = true;
+                for (JsonNode item : v) scalars &= !item.isContainerNode();
+                if (scalars) {
+                    List<String> items = new ArrayList<>();
+                    for (JsonNode item : v) items.add(item.asText());
+                    sb.append(indent).append(e.getKey()).append(" : ").append(String.join(", ", items)).append('\n');
+                } else {
+                    sb.append(indent).append(e.getKey()).append(" :").append('\n');
+                    for (JsonNode item : v) {
+                        sb.append(indent).append("  -").append('\n');
+                        appendObject(sb, item, indent + "    ");
+                    }
+                }
+            } else {
+                sb.append(indent).append(e.getKey()).append(" : ").append(v.isNull() ? "-" : v.asText()).append('\n');
+            }
+        });
     }
 }

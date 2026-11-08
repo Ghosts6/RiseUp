@@ -1,10 +1,10 @@
-# RiseUp — Stage 2 Implementation Docs
+# RiseUp — Stage 2 Implementation Report
 
 **Course:** EECS3311 · **Period:** 20 Oct – 10 Nov 2026  
 **Repository:** [https://github.com/Ghosts6/RiseUp](https://github.com/Ghosts6/RiseUp)  
-**Branches:** `main` (Python/FastAPI + React baseline) · `migrate/java` (Java delivery stack)
+**Branch:** `main` — Java delivery stack, merged from `migrate/java` via [PR #1](https://github.com/Ghosts6/RiseUp/pull/1) (the Python/FastAPI + React baseline is kept under `legacy/`)
 
-This document is the working Stage 2 write-up for the requirements in `Project-Stage2-Instruction.pdf`. It feeds the final `stage2-report` PDF and sits beside [java-migration-notes.md](./java-migration-notes.md).
+This report covers the Stage 2 requirements in `Project-Stage2-Instruction.pdf`. It sits beside [java-migration-notes.md](./java-migration-notes.md).
 
 ---
 
@@ -42,7 +42,7 @@ Keys live in local `backend/.env` (never committed); placeholders mean mock mode
 | GUI | JavaFX desktop (dashboard, alarms, ringing/verify, tasks, insights, recommendations, history, settings, agent) |
 | Runtime | Docker Compose: Postgres + Redis + backend · or `./gradlew :backend:bootRun` (H2 default, reads `backend/.env`) |
 
-Legacy Python FastAPI + React sources remain under `legacy/` on `migrate/java` for traceability.
+Legacy Python FastAPI + React sources remain under `legacy/` for traceability.
 
 ### Working functionality (honest status)
 
@@ -65,22 +65,22 @@ Stage 1 proposed **F01–F14**; all are implemented. **F15** and **F16** are new
 
 | Feature | Stage 1 | Status | Type | Patterns | Video |
 |---------|---------|--------|------|----------|-------|
-| F01 Alarm Management | F01 | Implemented | Deterministic | Observer | §7 |
-| F02 Verification Challenge | F02 | **Modified** (AI photo check, CLI photo verify, series questions) | Hybrid | Strategy, Factory Method | §7 |
-| F03 Post-Wake Check-in | F03 | Implemented | Deterministic | Observer, Adapter | §7 |
-| F04 AI Escalation Decision | F04 | Implemented | AI with fallback | Strategy, Adapter | §7 |
-| F05 Multi-Channel Escalation | F05 | Implemented | Deterministic | Adapter | §7 |
-| F06 Emergency Contact & Prefs | F06 | Implemented | Deterministic | Adapter | §7 |
-| F07 NL Reminder Creation | F07 | Implemented | Hybrid | Strategy, Factory Method | §7 |
-| F08 Reminder Management | F08 | Implemented | Deterministic | Factory Method, Observer | §7 |
-| F09 AI Reminder Prioritization | F09 | Implemented | AI with fallback | Strategy | §7 |
-| F10 Reminder Escalation Levels | F10 | Implemented | Deterministic | Observer, Adapter | §7 |
-| F11 Behavioral Learning | F11 | Implemented | Deterministic | Observer | §7 |
-| F12 Analytics Dashboard | F12 | Implemented | Deterministic | Strategy (CLI formatters) | §7 |
-| F13 AI Recommendations | F13 | Implemented | AI with fallback | Strategy | §7 |
-| F14 History & Explanation | F14 | Implemented | Hybrid | Strategy (CLI formatters) | §7 |
-| F15 Agent Chat with Tool Actions | **New** | Implemented | AI (tool use, confirm-before-act) | Strategy, Command (CLI) | §7 |
-| F16 Daily Briefing | **New** | Implemented | Deterministic | — | §7 |
+| F01 Alarm Management | F01 | Implemented | Deterministic | Observer | [3:01–7:59](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=181) |
+| F02 Verification Challenge | F02 | **Modified** (AI photo check, CLI photo verify, series questions) | Hybrid | Strategy, Factory Method | [8:00–13:47](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=480) |
+| F03 Post-Wake Check-in | F03 | Implemented | Deterministic | Observer, Adapter | [13:50–16:12](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=830) |
+| F04 AI Escalation Decision | F04 | Implemented | AI with fallback | Strategy, Adapter | [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973) |
+| F05 Multi-Channel Escalation | F05 | Implemented | Deterministic | Adapter | [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973) |
+| F06 Emergency Contact & Prefs | F06 | Implemented | Deterministic | Adapter | [19:01–22:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1141) |
+| F07 NL Reminder Creation | F07 | Implemented | Hybrid | Strategy, Factory Method | [22:00–24:32](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1320) |
+| F08 Reminder Management | F08 | Implemented | Deterministic | Factory Method, Observer | [24:33–27:21](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1473) |
+| F09 AI Reminder Prioritization | F09 | Implemented | AI with fallback | Strategy | [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642) |
+| F10 Reminder Escalation Levels | F10 | Implemented | Deterministic | Observer, Adapter | [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642) |
+| F11 Behavioral Learning | F11 | Implemented | Deterministic | Observer | [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951) |
+| F12 Analytics Dashboard | F12 | Implemented | Deterministic | Strategy (CLI formatters) | [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951) |
+| F13 AI Recommendations | F13 | Implemented | AI with fallback | Strategy | [35:06–36:50](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2106) |
+| F14 History & Explanation | F14 | Implemented | Hybrid | Strategy (CLI formatters) | [36:51–38:57](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2211) |
+| F15 Agent Chat with Tool Actions | **New** | Implemented | AI (tool use, confirm-before-act) | Strategy, Command (CLI) | [38:58–43:18](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2338) |
+| F16 Daily Briefing | **New** | Implemented | Deterministic | — | [43:19–44:08](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2599) |
 
 ### 2.2 Per-feature detail
 
@@ -88,82 +88,98 @@ Stage 1 proposed **F01–F14**; all are implemented. **F15** and **F16** are new
 - *Classes:* `alarm/AlarmControllerService` (validation, 20-alarm limit, CRUD); `alarm/AlarmSchedulerService` (trigger jobs); `domain/AlarmEntity`, `repository/AlarmRepository` (persistence); `api/AlarmController` (REST); GUI `AlarmFormPage`, `DashboardPage`; CLI `alarm add|list|edit|delete|toggle`.
 - *Key methods:* `AlarmControllerService.createAlarm / editAlarm / toggle / delete`, `AlarmSchedulerService.scheduleAlarm`.
 - *Flow:* GUI form or CLI → `POST /api/alarms` → `createAlarm()` validates time, task type and the limit → saves → `scheduleAlarm()` registers the trigger job → status events go to the dashboard over WebSocket.
+- *Video:* [3:01–7:59](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=181)
 
 **F02 — Verification Challenge** · Stage 1: F02 · **Modified** · Hybrid
 - *Classes:* `verification/VerificationTask` (strategy interface) with `MathTask`, `TriviaTask`, `CustomTask`, `SeriesTask` (multi-question), `ObjectDetectionTask`; `VerificationTaskFactory` (creates the right task, falls back to math after repeated camera failures); `ObjectDetector` strategy with `LlmObjectDetector` (AI) and `BasicImageDetector` (local gate / fallback); GUI `AlarmRingingPage`; CLI `alarm challenge|verify --answer|--done|--photo`.
 - *Key methods:* `VerificationTaskFactory.create / fromState`, `VerificationTask.validate`, `LlmObjectDetector.detect`, `LLMClient.sendVision`, `AlarmControllerService.getChallenge / verify`.
 - *Flow:* alarm fires → `getChallenge()` asks the factory for a task → GUI shows it (photo challenges show only an upload control; Verify unlocks after a valid JPEG/PNG) → `verify()` calls `task.validate()`. For photos, `LlmObjectDetector` first runs `BasicImageDetector`, then sends the image to Claude, which returns `{present, confidence, seen}`. A wrong object is rejected with what the model saw.
 - *Change:* see §4 (vision library → LLM vision; photo now also possible from the CLI).
+- *Video:* [8:00–13:47](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=480)
 
 **F03 — Post-Wake Check-in** · Stage 1: F03 · Implemented · Deterministic
 - *Classes:* `alarm/CheckInService`; `tools/ToolManager` (push, SMS fallback); GUI `CheckInPage`; CLI `checkin confirm|list`.
 - *Key methods:* `CheckInService.schedule / send / recordResponse / timeoutHandler`.
 - *Flow:* successful verification → `schedule()` → `send()` pushes "Are you still awake?" → user confirms (`recordResponse`) or `timeoutHandler()` hands over to F04.
+- *Video:* [13:50–16:12](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=830)
 
 **F04 — AI Escalation Decision** · Stage 1: F04 · Implemented · AI with fallback
 - *Classes:* `agent/AgentController` (entry point), `agent/EscalationEngine` (context, decision, validation, fallback), `ai/PromptBuilder`, `ai/LLMClient`, `ai/LLMProvider` (+ `ClaudeProvider`), `ai/ResponseParser`, `domain/EscalationLogEntity`.
 - *Key methods:* `AgentController.runEscalation`, `EscalationEngine.buildContext / decideEscalation / fallbackLadder`, `PromptBuilder.buildEscalationPrompt`, `ResponseParser.parseDecision`.
 - *Flow:* missed alarm or check-in → `runEscalation()` → `buildContext()` (profile stats, recent escalations, enabled methods) → prompt → Claude → `parseDecision()` checks that the method is enabled → decision with reasoning and confidence is logged and passed to F05. Timeout, invalid JSON or a disabled method → `fallbackLadder()`, logged as `fallback_used`.
+- *Video:* [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973)
 
 **F05 — Multi-Channel Escalation Execution** · Stage 1: F05 · Implemented · Deterministic
 - *Classes:* `tools/ToolManager`; `tools/Tool` (adapter interface); `TwilioClient`, `AlexaClient`, `FirebaseClient` (live) and `Mock*` clients; `EscalationEngine.scheduleFollowup`.
 - *Key methods:* `ToolManager.executeEscalation / sendSms / contactEmergency`, `EscalationEngine.followup / markUnanswered`.
 - *Flow:* decision → `executeEscalation(method)` → adapter → result logged → after 30 s with no response the next channel is tried; when the whole chain fails the alarm is marked unanswered.
+- *Video:* [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973)
 
 **F06 — Emergency Contact & Escalation Preferences** · Stage 1: F06 · Implemented · Deterministic
 - *Classes:* `prefs/PreferencesService`, `domain/UserPreferencesEntity`, `domain/EmergencyContactEntity`, `api/PreferencesController`; GUI `SettingsPage`; CLI `prefs show|set|test`, `contact add|list|remove|test`.
 - *Key methods:* `PreferencesService.update / addContact / consentLink / respondConsent / testChannel / testContact`.
 - *Flow:* settings form → `update()` validates channels and phone numbers → contacts stay excluded until consent is recorded → "test" sends through `ToolManager`.
+- *Video:* [19:01–22:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1141)
 
 **F07 — Natural-Language Reminder Creation** · Stage 1: F07 · Implemented · Hybrid
 - *Classes:* `reminder/NlParser`, `ai/PromptBuilder`, `ai/LLMClient`, `ai/ResponseParser`, `reminder/ReminderFactory`; GUI `TasksPage` ("Fill from text") and `AgentPage`; CLI `remind "<sentence>"`.
 - *Key methods:* `NlParser.parse`, `PromptBuilder.buildParsePrompt`, `ResponseParser.parseReminder`, `ReminderFactory.create`.
 - *Flow:* sentence → `parse()` → LLM JSON (`ok | needs_clarification | past_time`) → deterministic date validation → user confirms → `ReminderFactory.create()` → scheduled. Ambiguous input gets a clarifying question.
+- *Video:* [22:00–24:32](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1320)
 
 **F08 — Reminder Management** · Stage 1: F08 · Implemented · Deterministic
 - *Classes:* `reminder/ReminderControllerService`, `reminder/ReminderFactory`, `reminder/ReminderSchedulerService`, `repository/ReminderRepository`; GUI `TasksPage` and the dashboard "Tasks & events" card; CLI `task add|list|edit|done|snooze|delete` (`--due` also accepts `tomorrow 9am`, `in 30 minutes`).
 - *Key methods:* `ReminderControllerService.create / update / complete / snooze / delete / spawnNext`, `ReminderFactory.nextOccurrence`.
 - *Flow:* form or CLI → validate → save → `scheduleReminder()`; completing a recurring reminder spawns the next occurrence.
+- *Video:* [24:33–27:21](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1473)
 
 **F09 — AI Reminder Prioritization** · Stage 1: F09 · Implemented · AI with fallback
 - *Classes:* `reminder/ReminderPrioritizer`, `ai/PromptBuilder`, `ai/LLMClient`, `ai/ResponseParser`; CLI `task priority-preview`.
 - *Key methods:* `ReminderPrioritizer.prioritize`, `ReminderControllerService.priorityPreview`, `ResponseParser.parsePrioritize`.
 - *Flow:* several reminders due → `prioritize()` → Claude ranks them with reasoning → the ranking is accepted only if every reminder appears exactly once, otherwise the deterministic sort is used. Output shows `Decided by: llm:claude` or `rules`.
+- *Video:* [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642)
 
 **F10 — Reminder Escalation Levels** · Stage 1: F10 · Implemented · Deterministic
 - *Classes:* `reminder/ReminderSchedulerService`, `tools/ToolManager`, `events/EventBus` + `DefaultObservers` (reminder logger, dashboard).
 - *Key methods:* `ReminderSchedulerService.notifyDue / markMissed`, `ToolManager.sendReminder`.
 - *Flow:* primary notification → re-sent at +5 min and +15 min with stronger tone → marked missed; completing the task cancels the sequence. Each status change is emitted to observers.
+- *Video:* [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642)
 
 **F11 — Behavioral Learning & Profile Update** · Stage 1: F11 · Implemented · Deterministic
 - *Classes:* `insights/LearningService`, `insights/LearningNightlyJob` (02:15 daily), `domain/UserProfileEntity`; CLI `profile show|recompute`.
 - *Key methods:* `LearningService.analyzeBehavior / recomputeAllUsers`.
 - *Flow:* aggregates alarm, escalation and reminder logs into a wake-hour histogram, verification stats, per-method escalation success rates and per-category completion rates; marks "insufficient" below 5 signals. F04, F09 and F13 read this profile.
+- *Video:* [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951)
 
 **F12 — Sleep & Completion Analytics Dashboard** · Stage 1: F12 · Implemented · Deterministic
 - *Classes:* `insights/AnalyticsService`, `api/InsightsController`; GUI `InsightsPage`; CLI `stats --range 7d|30d|90d [--json]`.
 - *Key methods:* `AnalyticsService.getStats`.
 - *Flow:* range → `getStats()` → GUI charts, or CLI table / JSON through the `OutputFormatter` strategy.
+- *Video:* [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951)
 
 **F13 — AI Personalized Recommendations** · Stage 1: F13 · Implemented · AI with fallback
 - *Classes:* `insights/RecommendationService`, `ai/PromptBuilder`, `ai/LLMClient`, `ai/ResponseParser`, `domain/RecommendationEntity`; GUI `RecommendationsPage`; CLI `recommend [--apply n | --dismiss n]`.
 - *Key methods:* `RecommendationService.generate / accept / dismiss`, `PromptBuilder.buildRecommendPrompt`, `ResponseParser.parseRecommendations`.
 - *Flow:* profile + current settings → Claude suggests changes → each is validated against allowed settings (unsafe ones, e.g. disabling all escalation, are dropped) → accept applies through `PreferencesService`.
+- *Video:* [35:06–36:50](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2106)
 
 **F14 — History & Decision Explanation** · Stage 1: F14 · Implemented · Hybrid
 - *Classes:* `history/HistoryService`, `api/HistoryController`, `api/EscalationController`; GUI `HistoryPage`; CLI `history --type --since`, `escalation explain <id>`.
 - *Key methods:* `HistoryService.list / explain`.
 - *Flow:* filtered, paginated event list; `explain()` loads the stored decision (method, reasoning, confidence, provider, whether the fallback was used).
+- *Video:* [36:51–38:57](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2211)
 
 **F15 — Agent Chat with Tool Actions** · **New** · Implemented · AI
 - *Classes:* `agent/AgentChatService` (intent routing, multi-turn chat, tool-proposal extraction); `agent/AgentToolService` (whitelisted tools `create_alarm`, `create_reminder`, `list_today`); `ai/PromptBuilder.chatSystem` (app knowledge + tool schema + user's local date/time); `ai/AppKnowledge`; `api/AgentChatController`; GUI `AgentPage` (chat history in `AgentChatStore`); CLI `agent chat ["message"]` (one-shot or interactive).
 - *Key methods:* `AgentChatService.chat / executeTool`, `AgentToolService.execute / proposeReminderFromText`, `LLMClient.sendChat`.
 - *Flow:* user message → shortcuts for "remind me…" (F07 parser) and "what's on today" (F16) → otherwise multi-turn LLM chat → if the reply ends with a tool JSON for a known tool, it is returned as `proposed_action` → GUI or CLI asks for confirmation → `POST /api/agent/tools/execute` → the same domain services as the forms (validation and limits still apply).
+- *Video:* [38:58–43:18](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2338)
 
 **F16 — Daily Briefing** · **New** · Implemented · Deterministic
 - *Classes:* `agent/BriefingService`; GUI dashboard "This morning" card and `AgentPage`; CLI `agent today`.
 - *Key methods:* `BriefingService.today`.
 - *Flow:* collects today's active alarms, open or overdue tasks, high-priority items and pending check-ins in the user's timezone → summary sentence plus lists.
+- *Video:* [43:19–44:08](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2599)
 
 ---
 
@@ -344,16 +360,14 @@ Work is grouped into **three categories**.
 | [`9a50765`](https://github.com/Ghosts6/RiseUp/commit/9a50765) | **Major.** Agent chat (F15), daily briefing (F16), richer LLM / learning layer, nightly learning job. |
 | [`89282e7`](https://github.com/Ghosts6/RiseUp/commit/89282e7) | Multi-question series challenges; rehydrate schedules on startup; Postgres types. |
 | [`9cec3c8`](https://github.com/Ghosts6/RiseUp/commit/9cec3c8) | **Major.** GUI agent chat page, SVG icons, UI polish; stage 2 docs. |
-| _hash_ | **Fix.** Claude provider via Anthropic SDK: AI features no longer fall back silently. |
-| _hash_ | `bootRun` loads `backend/.env`. |
-| _hash_ | Photo challenge upload UX (JPEG/PNG only, ready-state Verify). |
-| _hash_ | Dashboard "Tasks & events" section; collapsible notifications. |
-| _hash_ | 17 AOSP alarm tones (Apache-2.0). |
-| _hash_ | **Major.** AI photo verification with Claude vision (+ 6 tests). |
-| _hash_ | Agent alarm tool: challenge / snooze fields, local-time grounding. |
-| _hash_ | CLI `agent chat/today`, `--photo`, friendly `--due`, `--help` (+ 5 tests). |
+| [`2cba94f`](https://github.com/Ghosts6/RiseUp/commit/2cba94f) | **Fix.** Claude provider via the Anthropic Java SDK (AI features no longer fall back silently); `bootRun` loads `backend/.env`. |
+| [`27cc8a8`](https://github.com/Ghosts6/RiseUp/commit/27cc8a8) | Photo challenge upload UX (JPEG/PNG only, ready-state Verify). |
+| [`52694ed`](https://github.com/Ghosts6/RiseUp/commit/52694ed) | Dashboard "Tasks & events" section; collapsible notifications. |
+| [`3c1fd2e`](https://github.com/Ghosts6/RiseUp/commit/3c1fd2e) | 17 AOSP alarm tones (Apache-2.0). |
+| [`6c7fde4`](https://github.com/Ghosts6/RiseUp/commit/6c7fde4) | **Major.** AI photo verification with Claude vision (+6 tests); agent alarm tool challenge / snooze fields and local-time grounding; phone number validation (+1 test). |
+| [`622a6c6`](https://github.com/Ghosts6/RiseUp/commit/622a6c6) | CLI `agent chat/today`, `--photo`, friendly `--due`, `--help` (+5 tests); README; class diagram; stop tracking IDE output. |
 
-*(Fill hashes after pushing.)*
+Merged into `main` with [PR #1](https://github.com/Ghosts6/RiseUp/pull/1) (merge commit [`06614aa`](https://github.com/Ghosts6/RiseUp/commit/06614aa)). Report-only commits (e.g. [`9a756b8`](https://github.com/Ghosts6/RiseUp/commit/9a756b8)) are not counted as code commits.
 
 ### 6.2 Weekly commit summary (Stage 2 instruction periods)
 
@@ -363,7 +377,7 @@ Dates in **America/Toronto**. Each period needs ≥5 meaningful code commits.
 |--------|-------|-------------------------|----------------------|
 | **1** | 20–26 Oct 2026 | [`53f05c8`](https://github.com/Ghosts6/RiseUp/commit/53f05c8) CLI+tests · [`f852886`](https://github.com/Ghosts6/RiseUp/commit/f852886) React UI · [`238eb0b`](https://github.com/Ghosts6/RiseUp/commit/238eb0b) Compose/CI · [`1fe144b`](https://github.com/Ghosts6/RiseUp/commit/1fe144b) branding · [`a287bfd`](https://github.com/Ghosts6/RiseUp/commit/a287bfd) theme | ≥5 |
 | **2** | 27 Oct – 2 Nov 2026 | [`8db2d9f`](https://github.com/Ghosts6/RiseUp/commit/8db2d9f) · [`3795f76`](https://github.com/Ghosts6/RiseUp/commit/3795f76) · [`7fd90b3`](https://github.com/Ghosts6/RiseUp/commit/7fd90b3) · [`71c628a`](https://github.com/Ghosts6/RiseUp/commit/71c628a) · [`7c1fff4`](https://github.com/Ghosts6/RiseUp/commit/7c1fff4) · [`5f63a2c`](https://github.com/Ghosts6/RiseUp/commit/5f63a2c) | ≥5 |
-| **3** | 3–9 Nov 2026 | [`9294f71`](https://github.com/Ghosts6/RiseUp/commit/9294f71) · [`f18f708`](https://github.com/Ghosts6/RiseUp/commit/f18f708) · [`99ed64b`](https://github.com/Ghosts6/RiseUp/commit/99ed64b) · [`46823cf`](https://github.com/Ghosts6/RiseUp/commit/46823cf) · [`4077f54`](https://github.com/Ghosts6/RiseUp/commit/4077f54) · [`e7dde77`](https://github.com/Ghosts6/RiseUp/commit/e7dde77) · [`9a50765`](https://github.com/Ghosts6/RiseUp/commit/9a50765) · [`89282e7`](https://github.com/Ghosts6/RiseUp/commit/89282e7) · [`9cec3c8`](https://github.com/Ghosts6/RiseUp/commit/9cec3c8) (+ Category 3 fix commits) | ≥5 |
+| **3** | 3–9 Nov 2026 | [`9294f71`](https://github.com/Ghosts6/RiseUp/commit/9294f71) · [`f18f708`](https://github.com/Ghosts6/RiseUp/commit/f18f708) · [`99ed64b`](https://github.com/Ghosts6/RiseUp/commit/99ed64b) · [`46823cf`](https://github.com/Ghosts6/RiseUp/commit/46823cf) · [`4077f54`](https://github.com/Ghosts6/RiseUp/commit/4077f54) · [`e7dde77`](https://github.com/Ghosts6/RiseUp/commit/e7dde77) · [`9a50765`](https://github.com/Ghosts6/RiseUp/commit/9a50765) · [`89282e7`](https://github.com/Ghosts6/RiseUp/commit/89282e7) · [`9cec3c8`](https://github.com/Ghosts6/RiseUp/commit/9cec3c8) · [`2cba94f`](https://github.com/Ghosts6/RiseUp/commit/2cba94f) · [`27cc8a8`](https://github.com/Ghosts6/RiseUp/commit/27cc8a8) · [`52694ed`](https://github.com/Ghosts6/RiseUp/commit/52694ed) · [`3c1fd2e`](https://github.com/Ghosts6/RiseUp/commit/3c1fd2e) · [`6c7fde4`](https://github.com/Ghosts6/RiseUp/commit/6c7fde4) · [`622a6c6`](https://github.com/Ghosts6/RiseUp/commit/622a6c6) | 15 |
 
 Note: [`6f74ee7`](https://github.com/Ghosts6/RiseUp/commit/6f74ee7) (18 Oct) is foundational Category 1 work **before** Period 1; it still documents implementation progress but is outside the first counted window.
 
@@ -388,47 +402,42 @@ Note: [`6f74ee7`](https://github.com/Ghosts6/RiseUp/commit/6f74ee7) (18 Oct) is 
 
 **Remaining limitations:** see §1.
 
-### 6.4 Remaining before hard submit
-
-- Push Category 3 fix commits and fill their hashes in §6.1.  
-- Export this material into `stage2-report` PDF/Word.  
-- Record GUI + CLI demo videos; fill §7 links.  
-- Re-check `.gitignore` / `.env.example` — no real keys in history.
 
 ---
 
 ## 7. Demonstration index
 
-| Feature | GUI segment | CLI segment | Notes |
-|---------|-------------|-------------|-------|
-| F01 | _TBD_ Dashboard → New alarm / edit / toggle | `riseup alarm add\|list\|edit\|toggle\|delete` | Show 20-alarm limit / invalid time |
-| F02 | _TBD_ Ringing page: math, trivia, photo upload | `alarm challenge` · `alarm verify --answer` · `alarm verify --photo` | Show wrong photo rejected with AI explanation |
-| F03 | _TBD_ Check-in page | `checkin confirm\|list` | |
-| F04–F05 | _TBD_ escalation status / History "Why?" | `escalation explain\|status\|list` | Show provider + fallback flag; mock channels |
-| F06 | _TBD_ Settings | `prefs show\|set\|test` · `contact add\|test` | |
-| F07 | _TBD_ Tasks "Fill from text" | `remind "call mom tomorrow at 9am"` | Clarifying question case |
-| F08 | _TBD_ Tasks page + dashboard Tasks & events | `task add --due "tomorrow 9am"\|list\|done\|snooze` | |
-| F09–F10 | _TBD_ notification order | `task priority-preview` | `Decided by: llm:claude` |
-| F11–F12 | _TBD_ Insights | `profile show\|recompute` · `stats --range 30d` | |
-| F13 | _TBD_ Recommendations accept/dismiss | `recommend [--apply n]` | |
-| F14 | _TBD_ History + "Why?" | `history --type escalation` · `escalation explain <id>` | |
-| F15 | _TBD_ Agent page: question, then "set an alarm…" → confirm | `agent chat "…"` · `agent chat` (interactive) | Show confirm/decline |
-| F16 | _TBD_ Dashboard "This morning" | `agent today` | |
+| Feature | Timestamp | GUI shown | CLI shown | Error / alternative shown |
+|---------|-----------|-----------|-----------|---------------------------|
+| F01 | [3:01–7:59](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=181) | Dashboard → New alarm / edit / toggle | `riseup alarm add\|list\|edit\|toggle\|delete` | 20-alarm limit / invalid time rejected |
+| F02 | [8:00–13:47](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=480) | Ringing page: math, trivia, photo upload | `alarm challenge` · `alarm verify --answer` · `alarm verify --photo` | Wrong photo rejected with the AI's description |
+| F03 | [13:50–16:12](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=830) | Check-in page | `checkin confirm\|list` | |
+| F04–F05 | [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973) | escalation status / History "Why?" | `escalation explain\|status\|list` | Provider + fallback flag; mock channels |
+| F06 | [19:01–22:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1141) | Settings | `prefs show\|set\|test` · `contact add\|test` | |
+| F07 | [22:00–24:32](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1320) | Tasks "Fill from text" | `remind "call mom tomorrow at 9am"` | Clarifying question for an ambiguous sentence |
+| F08 | [24:33–27:21](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1473) | Tasks page + dashboard Tasks & events | `task add --due "tomorrow 9am"\|list\|done\|snooze` | |
+| F09–F10 | [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642) | notification order | `task priority-preview` | `Decided by: llm:claude` shown |
+| F11–F12 | [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951) | Insights | `profile show\|recompute` · `stats --range 30d` | |
+| F13 | [35:06–36:50](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2106) | Recommendations accept/dismiss | `recommend [--apply n]` | |
+| F14 | [36:51–38:57](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2211) | History + "Why?" | `history --type escalation` · `escalation explain <id>` | |
+| F15 | [38:58–43:18](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2338) | Agent page: question, then "set an alarm…" → confirm | `agent chat "…"` · `agent chat` (interactive) | Confirm and decline of a proposed action |
+| F16 | [43:19–44:08](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2599) | Dashboard "This morning" | `agent today` | |
 
-Collectively show **both GUI and CLI**. Do not display API keys on camera.
+Full recording (45:41): [RiseUpDemo.mp4 on Google Drive](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view). Additional segments: [0:00–3:01](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=0) intro and setup (Docker stack, health check, GUI + CLI launch); [44:09–45:41](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2649) AI fallback (with the model disabled, prioritization reports "Decided by: rules" and photo verify reports "basic photo check: AI vision unavailable") and outro.
+
+Every feature segment shows the GUI and the CLI running against the same backend. No API keys or credentials appear in the recording.
 
 ---
 
-## Submission checklist (from instructions)
+## Submission contents
 
-- [x] Source: GUI + CLI + AI integration (Java modules; legacy archived)  
-- [x] README with prerequisites, `.env` copy, API keys, launch commands, CLI examples  
-- [x] Build files + Compose  
-- [x] Updated UML class diagram (`uml/ClassDiagram-stage2.png`)  
-- [ ] Final `stage2-report` PDF (derive from this doc)  
-- [ ] Feature videos + links in §7  
-- [x] `.gitignore` + `.env.example` (verify no secrets)  
-- [ ] Public repo URL submitted in course system  
+- Source: GUI + CLI + AI integration (Java modules; legacy archived under `legacy/`)
+- README with prerequisites, `.env` copy, API keys, launch commands and CLI examples
+- Build files (Gradle) + Docker Compose
+- Updated UML class diagram (`uml/ClassDiagram-stage2.png`)
+- This report (`stage2-report.pdf`)
+- Feature demonstration video, indexed per feature in §2 and §7
+- `.gitignore` + `.env.example`; no real keys or credentials committed
 
 ---
 

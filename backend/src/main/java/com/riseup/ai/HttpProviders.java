@@ -1,5 +1,17 @@
 package com.riseup.ai;
 
+import com.anthropic.client.AnthropicClient;
+import com.anthropic.client.okhttp.AnthropicOkHttpClient;
+import com.anthropic.errors.AnthropicException;
+import com.anthropic.errors.AnthropicServiceException;
+import com.anthropic.models.messages.Base64ImageSource;
+import com.anthropic.models.messages.ContentBlock;
+import com.anthropic.models.messages.ContentBlockParam;
+import com.anthropic.models.messages.ImageBlockParam;
+import com.anthropic.models.messages.Message;
+import com.anthropic.models.messages.MessageCreateParams;
+import com.anthropic.models.messages.OutputConfig;
+import com.anthropic.models.messages.TextBlockParam;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -9,6 +21,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
@@ -18,12 +31,20 @@ public final class HttpProviders {
 
     private HttpProviders() {}
 
+    /** Anthropic Messages API via the official Java SDK (Adapter over {@link LLMProvider}). */
     public static class ClaudeProvider implements LLMProvider {
-        private final String apiKey;
+        private static final long MAX_TOKENS = 4096L;
+
+        private final AnthropicClient client;
         private final String model;
 
         public ClaudeProvider(String apiKey, String model) {
-            this.apiKey = apiKey;
+            this.client =
+                    AnthropicOkHttpClient.builder()
+                            .apiKey(apiKey)
+                            .timeout(Duration.ofSeconds(45))
+                            .maxRetries(1)
+                            .build();
             this.model = model;
         }
 
@@ -39,40 +60,99 @@ public final class HttpProviders {
 
         @Override
         public String complete(String prompt, String system) {
-            try {
-                String sys = system == null ? "" : ",\"system\":" + json(system);
-                String body =
-                        "{\"model\":"
-                                + json(model)
-                                + ",\"max_tokens\":1024,\"messages\":[{\"role\":\"user\",\"content\":"
-                                + json(prompt)
-                                + "}]"
-                                + sys
-                                + "}";
-                HttpRequest req =
-                        HttpRequest.newBuilder()
-                                .uri(URI.create("https://api.anthropic.com/v1/messages"))
-                                .header("x-api-key", apiKey)
-                                .header("anthropic-version", "2023-06-01")
-                                .header("content-type", "application/json")
-                                .timeout(Duration.ofSeconds(20))
-                                .POST(HttpRequest.BodyPublishers.ofString(body))
-                                .build();
-                HttpResponse<String> resp = HTTP.send(req, HttpResponse.BodyHandlers.ofString());
-                if (resp.statusCode() >= 400) {
-                    throw new LLMProviderError("Claude error " + resp.statusCode());
+            MessageCreateParams.Builder params = baseParams(system).addUserMessage(prompt == null ? "" : prompt);
+            return send(params.build());
+        }
+
+        @Override
+        public String completeChat(List<Map<String, String>> turns, String system) {
+            MessageCreateParams.Builder params = baseParams(system);
+            boolean any = false;
+            if (turns != null) {
+                for (Map<String, String> turn : turns) {
+                    if (turn == null) {
+                        continue;
+                    }
+                    String role = String.valueOf(turn.getOrDefault("role", "user"));
+                    String content = String.valueOf(turn.getOrDefault("content", ""));
+                    if (content.isBlank()) {
+                        continue;
+                    }
+                    if ("assistant".equalsIgnoreCase(role)) {
+                        // Messages API conversations must open with a user turn
+                        if (any) {
+                            params.addAssistantMessage(content);
+                        }
+                    } else if ("user".equalsIgnoreCase(role)) {
+                        params.addUserMessage(content);
+                        any = true;
+                    }
                 }
-                // naive extract
-                int i = resp.body().indexOf("\"text\":");
-                if (i < 0) return resp.body();
-                int start = resp.body().indexOf('"', i + 7) + 1;
-                int end = resp.body().indexOf('"', start);
-                return resp.body().substring(start, end);
-            } catch (LLMProviderError e) {
-                throw e;
-            } catch (Exception e) {
+            }
+            if (!any) {
+                throw new LLMProviderError("Claude chat needs at least one user message");
+            }
+            return send(params.build());
+        }
+
+        @Override
+        public boolean supportsVision() {
+            return true;
+        }
+
+        @Override
+        public String completeWithImage(String prompt, String system, byte[] image, String mediaType) {
+            Base64ImageSource.MediaType type = "image/png".equals(mediaType)
+                    ? Base64ImageSource.MediaType.IMAGE_PNG
+                    : Base64ImageSource.MediaType.IMAGE_JPEG;
+            ImageBlockParam img = ImageBlockParam.builder()
+                    .source(Base64ImageSource.builder()
+                            .data(Base64.getEncoder().encodeToString(image))
+                            .mediaType(type)
+                            .build())
+                    .build();
+            MessageCreateParams params = baseParams(system)
+                    .addUserMessageOfBlockParams(List.of(
+                            ContentBlockParam.ofImage(img),
+                            ContentBlockParam.ofText(TextBlockParam.builder().text(prompt).build())))
+                    .build();
+            return send(params);
+        }
+
+        private MessageCreateParams.Builder baseParams(String system) {
+            MessageCreateParams.Builder b =
+                    MessageCreateParams.builder()
+                            .model(model)
+                            .maxTokens(MAX_TOKENS)
+                            // Short structured tasks: keep thinking light for latency/cost
+                            .outputConfig(OutputConfig.builder().effort(OutputConfig.Effort.LOW).build());
+            if (system != null && !system.isBlank()) {
+                b.system(system);
+            }
+            return b;
+        }
+
+        private String send(MessageCreateParams params) {
+            Message response;
+            try {
+                response = client.messages().create(params);
+            } catch (AnthropicServiceException e) {
+                throw new LLMProviderError("Claude error " + e.statusCode() + ": " + truncate(e.getMessage()), e);
+            } catch (AnthropicException e) {
                 throw new LLMProviderError("Claude request failed: " + e.getMessage(), e);
             }
+            String stop = response.stopReason().map(Object::toString).orElse("");
+            if ("refusal".equals(stop)) {
+                throw new LLMProviderError("Claude declined the request");
+            }
+            StringBuilder text = new StringBuilder();
+            for (ContentBlock block : response.content()) {
+                block.text().ifPresent(t -> text.append(t.text()));
+            }
+            if (text.isEmpty()) {
+                throw new LLMProviderError("Claude response had no text (stop_reason=" + stop + ")");
+            }
+            return text.toString();
         }
     }
 
@@ -181,16 +261,12 @@ public final class HttpProviders {
             n.put("content", content);
             return n;
         }
-
-        private static String truncate(String s) {
-            if (s == null) {
-                return "";
-            }
-            return s.length() > 240 ? s.substring(0, 240) : s;
-        }
     }
 
-    private static String json(String s) {
-        return "\"" + s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"";
+    private static String truncate(String s) {
+        if (s == null) {
+            return "";
+        }
+        return s.length() > 240 ? s.substring(0, 240) : s;
     }
 }

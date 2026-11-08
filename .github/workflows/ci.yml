@@ -2,54 +2,48 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, migrate/**]
   pull_request:
-    branches: [ main, develop ]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    strategy:
-      matrix:
-        python-version: [ "3.11", "3.12" ]
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-java@v4
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
+          distribution: temurin
+          java-version: "23"
+          cache: gradle
+      - name: Backend tests
+        run: ./gradlew :backend:test --no-daemon
 
-      - name: Install
-        run: pip install -e ".[dev]"
-
-      - name: Lint (flake8 + black)
-        run: |
-          flake8 riseup riseup_cli tests app.py
-          black --check riseup riseup_cli tests
-
-      - name: Type check (mypy)
-        run: mypy riseup riseup_cli
-
-      - name: Migrations match models
-        env:
-          DATABASE_URL: sqlite:///./ci.db
-        run: |
-          alembic upgrade head
-          alembic check
-
-      - name: Tests
-        run: pytest --cov=riseup --cov=riseup_cli --cov-report=term-missing
-
-  backend-postgres:
+  cli:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "23"
+          cache: gradle
+      - name: CLI compile
+        run: ./gradlew :cli:jar --no-daemon
+
+  gui:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "23"
+          cache: gradle
+      - name: GUI compile
+        run: ./gradlew :gui:compileJava --no-daemon
+
+  postgres-migrate:
+    runs-on: ubuntu-latest
     services:
       postgres:
         image: postgres:16-alpine
@@ -57,34 +51,25 @@ jobs:
           POSTGRES_USER: riseup
           POSTGRES_PASSWORD: riseup
           POSTGRES_DB: riseup
-        ports: [ "5432:5432" ]
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U riseup" --health-interval 5s --health-timeout 5s --health-retries 10
-    env:
-      DATABASE_URL: postgresql://riseup:riseup@localhost:5432/riseup
+          --health-cmd "pg_isready -U riseup"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-java@v4
         with:
-          python-version: "3.11"
-      - name: Install
-        run: pip install -e ".[postgres]"
-      - name: Apply migrations on Postgres
-        run: |
-          alembic upgrade head
-          alembic check
-
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install
-        run: npm install --no-audit --no-fund
-      - name: Type check and build
-        run: npm run build
+          distribution: temurin
+          java-version: "23"
+          cache: gradle
+      - name: Boot against Postgres
+        env:
+          DATABASE_URL: jdbc:postgresql://localhost:5432/riseup
+          DATABASE_USER: riseup
+          DATABASE_PASSWORD: riseup
+          DATABASE_DRIVER: org.postgresql.Driver
+          ENABLE_SCHEDULER: "false"
+        run: ./gradlew :backend:test --tests com.riseup.HealthIT --no-daemon

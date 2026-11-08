@@ -41,6 +41,13 @@ config.local.json
 # Build outputs
 /frontend/build/
 /frontend/dist/
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+backend/data/
+*.jar
+!gradle/wrapper/*.jar
+out/
 
 # Logs
 *.log
@@ -60,3 +67,12 @@ db.sqlite3
 Resource/
 
 # Frontend/         
+
+# IDE (Eclipse/VS Code Java) build output
+gui/bin/
+cli/bin/
+backend/bin/
+
+# Diagram sources — only the rendered PNG is committed
+docs/stage-2-implementation/uml/*.dot
+docs/stage-2-implementation/uml/*.svg

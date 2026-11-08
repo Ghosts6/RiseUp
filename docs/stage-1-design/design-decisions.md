@@ -154,7 +154,7 @@ live on `EscalationEngine.decide_escalation()` (and the agent loop on `AgentCont
 not on `LLMClient`.
 
 **Models (Stage 1 design):**
-- Anthropic: `claude-sonnet-4-5` (default for escalation / recommendations)
+- Anthropic: `claude-sonnet-5` (default for escalation / recommendations)
 - OpenAI: `gpt-4o` (default for NL reminder parsing; interchangeable via config)
 
 **Responsibilities:**
@@ -166,7 +166,7 @@ not on `LLMClient`.
 **Example Usage:**
 ```python
 # BAD: decision logic and vendor SDK mixed
-response = anthropic.messages.create(model="claude-sonnet-4-5", messages=[...])
+response = anthropic.messages.create(model="claude-sonnet-5", messages=[...])
 
 # GOOD: engine decides; client only talks to a provider
 decision = escalation_engine.decide_escalation(alarm_id)  # may call llm_client.send_request()
@@ -205,7 +205,7 @@ This satisfies the Stage 1 rule that a simple “prompt → display text” chat
 ### AI-01: Dual LLM providers (Claude + OpenAI)
 
 **Decision:**
-Use **both** Anthropic Claude (`claude-sonnet-4-5`) and OpenAI (`gpt-4o`) behind
+Use **both** Anthropic Claude (`claude-sonnet-5`) and OpenAI (`gpt-4o`) behind
 `LLMProvider`. Default routing: Claude for escalation/recommendations; OpenAI for NL
 parsing. Either provider can be selected via config for any AI feature.
 
@@ -263,7 +263,7 @@ Escalation Decision:
    - ❌ Poor user experience
    - ❌ Cannot learn
 
-**Chosen:** Dual providers (`claude-sonnet-4-5` + `gpt-4o`) behind `LLMProvider`, driven by `AgentController`
+**Chosen:** Dual providers (`claude-sonnet-5` + `gpt-4o`) behind `LLMProvider`, driven by `AgentController`
 
 ---
 

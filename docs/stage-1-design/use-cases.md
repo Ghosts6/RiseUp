@@ -265,7 +265,7 @@ System (AgentController / EscalationEngine)
 
 ### Secondary Actors
 - User (recipient of escalation)
-- LLM Service (Claude `claude-sonnet-4-5` / OpenAI `gpt-4o`)
+- LLM Service (Claude `claude-sonnet-5` / OpenAI `gpt-4o`)
 - Twilio (calls / SMS)
 - Alexa (alerts)
 - Firebase (optional push)

@@ -22,7 +22,9 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,23 +33,21 @@ services:
     env_file:
       - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://riseup:riseup@postgres:5432/riseup
+      DATABASE_URL: jdbc:postgresql://postgres:5432/riseup
+      DATABASE_USER: riseup
+      DATABASE_PASSWORD: riseup
+      DATABASE_DRIVER: org.postgresql.Driver
       REDIS_URL: redis://redis:6379/0
       PUBLIC_BASE_URL: http://localhost:8000
-      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      PORT: "8000"
     ports:
       - "8000:8000"
-
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        VITE_API_URL: http://localhost:8000
-        VITE_API_TOKEN: ${DEMO_TOKEN:-dev-token}
-    depends_on:
-      - backend
-    ports:
-      - "5173:80"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
 
 volumes:
   pgdata:

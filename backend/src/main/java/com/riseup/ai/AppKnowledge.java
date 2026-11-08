@@ -13,7 +13,7 @@ public final class AppKnowledge {
 
             ## Core features
             - Alarms with Apple-style time wheels (scroll, tap arrows, or click the selected
-              hour/minute to type). Sounds include Library, Imported, and Standard tones.
+              hour/minute to type). Sounds include Modern, Library, Imported, and Standard tones.
             - Wake challenges: Math, Trivia, Photo object, or Custom text. Difficulty and
               question count are configurable. Solving the challenge is required to dismiss.
             - Optional snooze (5–30 min) and repeat patterns (once, daily, weekdays, weekends,

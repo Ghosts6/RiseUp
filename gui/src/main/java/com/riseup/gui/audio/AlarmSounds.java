@@ -18,6 +18,25 @@ public final class AlarmSounds {
     private static final List<SoundOption> ALL = new ArrayList<>();
 
     static {
+        // Modern — Android Open Source Project alarm tones (Apache-2.0, see sounds/NOTICE-AOSP.txt)
+        modern("awaken", "Awaken");
+        modern("sunrise", "Sunrise");
+        modern("bounce", "Bounce");
+        modern("gallop", "Gallop");
+        modern("orbit", "Orbit");
+        modern("sway", "Sway");
+        modern("drip", "Drip");
+        modern("nudge", "Nudge");
+        modern("wag", "Wag");
+        modern("argon", "Argon");
+        modern("platinum", "Platinum");
+        modern("neon", "Neon");
+        modern("oxygen", "Oxygen");
+        modern("krypton", "Krypton");
+        modern("osmium", "Osmium");
+        modern("rooster", "Rooster");
+        modern("buzzer", "Buzzer");
+
         // Library — WAV assets under /sounds
         lib("classic", "Classic");
         lib("radar", "Radar");
@@ -64,6 +83,10 @@ public final class AlarmSounds {
 
     private AlarmSounds() {}
 
+    private static void modern(String key, String label) {
+        add(new SoundOption(key, label, "Modern", true));
+    }
+
     private static void lib(String key, String label) {
         add(new SoundOption(key, label, "Library", true));
     }
@@ -83,6 +106,10 @@ public final class AlarmSounds {
 
     public static List<SoundOption> all() {
         return List.copyOf(ALL);
+    }
+
+    public static List<SoundOption> modern() {
+        return ALL.stream().filter(o -> "Modern".equals(o.category())).toList();
     }
 
     public static List<SoundOption> library() {

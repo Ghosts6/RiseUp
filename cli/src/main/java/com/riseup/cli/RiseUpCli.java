@@ -20,7 +20,8 @@ import java.util.concurrent.Callable;
                 RiseUpCli.AlarmCmd.class, RiseUpCli.CheckinCmd.class, RiseUpCli.EscalationCmd.class,
                 RiseUpCli.PrefsCmd.class, RiseUpCli.ContactCmd.class, RiseUpCli.RemindCmd.class,
                 RiseUpCli.TaskCmd.class, RiseUpCli.ProfileCmd.class, RiseUpCli.StatsCmd.class,
-                RiseUpCli.RecommendCmd.class, RiseUpCli.HistoryCmd.class, RiseUpCli.HealthCmd.class
+                RiseUpCli.RecommendCmd.class, RiseUpCli.HistoryCmd.class, RiseUpCli.AgentCmd.class,
+                RiseUpCli.HealthCmd.class
         })
 public class RiseUpCli implements Callable<Integer> {
     @Option(names = "--json", description = "Machine-readable JSON output")
@@ -38,7 +39,15 @@ public class RiseUpCli implements Callable<Integer> {
     private static final CommandRegistry REGISTRY = new CommandRegistry();
 
     public static void main(String[] args) {
-        System.exit(new CommandLine(new RiseUpCli()).execute(args));
+        CommandLine cli = new CommandLine(new RiseUpCli());
+        enableHelp(cli);
+        System.exit(cli.execute(args));
+    }
+
+    /** Every subcommand gets -h/--help (and keeps its own description). */
+    static void enableHelp(CommandLine cmd) {
+        cmd.getCommandSpec().mixinStandardHelpOptions(true);
+        cmd.getSubcommands().values().forEach(RiseUpCli::enableHelp);
     }
 
     @Override
@@ -139,8 +148,10 @@ public class RiseUpCli implements Callable<Integer> {
         @Parameters(index = "0") int id;
         @Option(names = "--answer") String answer;
         @Option(names = "--done") boolean done;
+        @Option(names = "--photo", description = "JPEG/PNG file for photo challenges (checked by AI vision)") String photo;
         public Integer call() {
-            return run("alarm.verify", new String[]{String.valueOf(id), answer == null ? "" : answer, String.valueOf(done)});
+            return run("alarm.verify", new String[]{
+                    String.valueOf(id), answer == null ? "" : answer, String.valueOf(done), photo == null ? "" : photo});
         }
     }
 
@@ -235,7 +246,8 @@ public class RiseUpCli implements Callable<Integer> {
     static class TaskCmd implements Callable<Integer> { public Integer call() { return ExitCodes.USAGE; } }
 
     @Command(name = "add") static class TaskAdd implements Callable<Integer> {
-        @Option(names = "--title") String title; @Option(names = "--due") String due;
+        @Option(names = "--title") String title;
+        @Option(names = "--due", description = "YYYY-MM-DD HH:MM, today 18:30, tomorrow [9am], in 30 minutes") String due;
         @Option(names = "--priority") String priority; @Option(names = "--category") String category;
         @Option(names = "--repeat") String repeat; @Option(names = "--notify") String notify;
         @Option(names = "--notes") String notes;
@@ -251,7 +263,8 @@ public class RiseUpCli implements Callable<Integer> {
     }
     @Command(name = "edit") static class TaskEdit implements Callable<Integer> {
         @Parameters(index = "0") int id;
-        @Option(names = "--title") String title; @Option(names = "--due") String due;
+        @Option(names = "--title") String title;
+        @Option(names = "--due", description = "YYYY-MM-DD HH:MM, today 18:30, tomorrow [9am], in 30 minutes") String due;
         @Option(names = "--priority") String priority; @Option(names = "--category") String category;
         @Option(names = "--repeat") String repeat; @Option(names = "--notify") String notify;
         @Option(names = "--notes") String notes; @Option(names = "--scope", defaultValue = "this") String scope;
@@ -312,6 +325,18 @@ public class RiseUpCli implements Callable<Integer> {
         public Integer call() {
             return run("history", new String[]{type == null ? "" : type, since == null ? "" : since, String.valueOf(page)});
         }
+    }
+
+    @Command(name = "agent", description = "Talk to the RiseUp AI agent", subcommands = {AgentChat.class, AgentToday.class})
+    static class AgentCmd implements Callable<Integer> { public Integer call() { return ExitCodes.USAGE; } }
+    @Command(name = "chat", description = "Ask the agent; it can propose alarms/reminders (you confirm). No message = interactive session")
+    static class AgentChat implements Callable<Integer> {
+        @Parameters(arity = "0..*") String[] message;
+        public Integer call() { return run("agent.chat", new String[]{message == null ? "" : String.join(" ", message)}); }
+    }
+    @Command(name = "today", description = "Morning briefing: today's alarms and tasks")
+    static class AgentToday implements Callable<Integer> {
+        public Integer call() { return run("agent.today", new String[]{}); }
     }
 
     @Command(name = "health", description = "Backend health and integration status")

@@ -66,14 +66,20 @@ public final class ConcreteCommands {
         });
         registry.register("alarm.verify", (args, yes) -> (api, io) -> {
             JsonNode challenge = api.get("/api/alarms/" + args[0] + "/challenge");
-            if ("object_detection".equals(challenge.path("challenge").path("type").asText()))
-                throw new UserInputError("Photo verification is GUI-only (needs a camera). Open the web app to take the photo.");
-            String answer = args.length > 1 ? args[1] : "";
-            boolean done = args.length > 2 && Boolean.parseBoolean(args[2]);
-            if (answer.isBlank() && !done) throw new UserInputError("Pass --answer <value> (math/trivia) or --done (custom task)");
+            String photo = blank(args, 3, "");
+            boolean photoTask = "photo".equals(challenge.path("challenge").path("input").asText());
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("answer", answer.isBlank() ? null : answer);
-            body.put("completed", done);
+            if (photoTask) {
+                if (photo.isBlank()) throw new UserInputError("This is a photo challenge: pass --photo <file.jpg|file.png>");
+                body.put("image_base64", PhotoFiles.readBase64(photo));
+                body.put("completed", true);
+            } else {
+                String answer = args.length > 1 ? args[1] : "";
+                boolean done = args.length > 2 && Boolean.parseBoolean(args[2]);
+                if (answer.isBlank() && !done) throw new UserInputError("Pass --answer <value> (math/trivia) or --done (custom task)");
+                body.put("answer", answer.isBlank() ? null : answer);
+                body.put("completed", done);
+            }
             JsonNode result = api.post("/api/alarms/" + args[0] + "/verify", body);
             if (result.path("success").asBoolean(false)) {
                 String extra = result.hasNonNull("checkin_at") ? " Check-in at " + result.path("checkin_at").asText() + "." : "";
@@ -183,7 +189,7 @@ public final class ConcreteCommands {
             if (args[0].isBlank() || args[1].isBlank())
                 throw new UserInputError("Both --title and --due are required, e.g. --due \"2026-10-20 09:00\"");
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("title", args[0]); body.put("due", args[1]);
+            body.put("title", args[0]); body.put("due", DueParser.normalize(args[1], java.time.LocalDateTime.now()));
             body.put("priority", blank(args,2,"medium")); body.put("category", blank(args,3,"personal"));
             body.put("repeat_pattern", blank(args,4,"none")); body.put("notification_type", blank(args,5,"push"));
             if (args.length > 6 && !args[6].isBlank()) body.put("notes", args[6]);
@@ -210,6 +216,7 @@ public final class ConcreteCommands {
             putIf(body, "title", args, 1); putIf(body, "due", args, 2); putIf(body, "priority", args, 3);
             putIf(body, "category", args, 4); putIf(body, "repeat_pattern", args, 5); putIf(body, "notification_type", args, 6);
             putIf(body, "notes", args, 7);
+            if (body.containsKey("due")) body.put("due", DueParser.normalize((String) body.get("due"), java.time.LocalDateTime.now()));
             if (body.isEmpty()) throw new UserInputError("Nothing to change. Pass at least one option.");
             String scope = args.length > 8 && !args[8].isBlank() ? args[8] : "this";
             return print(api, io, Result.ok(api.patch("/api/reminders/" + args[0] + "?scope=" + scope, body), "Reminder updated."));
@@ -274,6 +281,49 @@ public final class ConcreteCommands {
                 + " (" + pageNode.path("total").asInt() + " events). Explain an AI decision: riseup escalation explain <ref>";
             return print(api, io, Result.ok(pageNode.path("items"), hint));
         });
+        registry.register("agent.today", (args, yes) -> (api, io) -> {
+            JsonNode b = api.get("/api/agent/briefing");
+            List<String> lines = new ArrayList<>();
+            lines.add(b.path("summary").asText("No briefing available."));
+            for (JsonNode a : b.path("alarms")) {
+                lines.add("  alarm  " + a.path("time").asText() + "  " + a.path("label").asText("Alarm"));
+            }
+            for (JsonNode r : b.path("reminders")) {
+                lines.add("  task   " + r.path("due_local").asText(r.path("due_at").asText()) + "  " + r.path("title").asText());
+            }
+            return print(api, io, Result.ok(io.isJson() ? b : null, String.join("\n", lines)));
+        });
+        registry.register("agent.chat", (args, yes) -> (api, io) -> {
+            List<Map<String, String>> history = new ArrayList<>();
+            String message = blank(args, 0, "");
+            boolean session = message.isBlank();
+            if (session) io.echo("RiseUp Agent. Ask anything, or e.g. \"set an alarm for 6:45 with a trivia challenge\". Empty line or 'exit' quits.");
+            while (true) {
+                if (session) {
+                    message = io.readOptional("you");
+                    if (message == null || message.isBlank() || "exit".equalsIgnoreCase(message.trim())) return ExitCodes.SUCCESS;
+                }
+                JsonNode resp = api.post("/api/agent/chat", Map.of("message", message, "history", history));
+                if (io.isJson() && !session) return print(api, io, resp);
+                String reply = resp.path("reply").asText("");
+                io.echo("agent> " + reply + "   [" + resp.path("provider").asText("?") + "]");
+                history.add(Map.of("role", "user", "content", message));
+                history.add(Map.of("role", "assistant", "content", reply));
+                JsonNode action = resp.path("proposed_action");
+                if (action.isObject() && action.hasNonNull("tool")) {
+                    io.echo("Proposed action: " + action.path("tool").asText() + " " + action.path("args"));
+                    if (io.confirm(action.path("confirm_message").asText("Run this action?"), false)) {
+                        JsonNode done = api.post("/api/agent/tools/execute", Map.of(
+                                "tool", action.path("tool").asText(), "args", action.path("args")));
+                        io.echo(done.path("message").asText("Done."));
+                        history.add(Map.of("role", "assistant", "content", "(action confirmed) " + done.path("message").asText("")));
+                    } else {
+                        io.echo("Not run. Nothing saved.");
+                    }
+                }
+                if (!session) return ExitCodes.SUCCESS;
+            }
+        });
         registry.register("health", (args, yes) -> (api, io) -> print(api, io, api.get("/api/health")));
     }
 
@@ -299,7 +349,7 @@ public final class ConcreteCommands {
         }
         String type = task.path("type").asText();
         int alarmId = challenge.path("alarm_id").asInt(0);
-        if ("object_detection".equals(type)) lines.add("Photo verification is GUI-only (needs a camera). Open the web app.");
+        if ("object_detection".equals(type)) lines.add("Answer with: riseup alarm verify " + alarmId + " --photo <file.jpg|file.png>");
         else if ("custom".equals(type)) lines.add("When done: riseup alarm verify " + alarmId + " --done");
         else lines.add("Answer with: riseup alarm verify " + alarmId + " --answer <value>");
         return String.join("\n", lines);

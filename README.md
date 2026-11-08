@@ -26,6 +26,39 @@ cp backend/.env.example backend/.env   # once
 API default: `http://localhost:8000` · demo token: `dev-token`  
 There is no separate React frontend on this branch — GUI is the JavaFX module.
 
+### API keys (local)
+
+Edit `backend/.env` (never commit it) and replace the placeholders:
+
+```bash
+CLAUDE_API_KEY=sk-ant-...      # escalation, prioritization, recommendations, photo verification
+OPENAI_API_KEY=sk-...          # reminder parsing, agent chat
+```
+
+`./gradlew :backend:bootRun` and Docker Compose both read `backend/.env`. Missing or placeholder keys fall back
+to the mock provider, and `GET /api/health` shows which provider each feature uses. Per-feature routing:
+`LLM_ESCALATION_PROVIDER`, `LLM_PARSE_PROVIDER`, `LLM_PRIORITIZE_PROVIDER`, `LLM_RECOMMEND_PROVIDER`,
+`LLM_CHAT_PROVIDER`, `LLM_VISION_PROVIDER` (`claude` | `openai` | `mock`; vision needs `claude`).
+
+### CLI examples
+
+```bash
+./gradlew :cli:installDist && alias riseup=cli/build/install/cli/bin/cli   # or: ./gradlew :cli:run --args='...'
+
+riseup alarm add 07:30 --label Morning --task math
+riseup alarm verify 3 --answer 42                 # math / trivia
+riseup alarm verify 3 --photo ~/Desktop/mug.jpg   # photo challenge (AI vision)
+riseup task add --title "Buy milk" --due "tomorrow 9am"
+riseup remind "call mom tomorrow at 9am"          # natural language (AI parse, you confirm)
+riseup task priority-preview                      # AI ranking of due tasks
+riseup agent chat "set an alarm for 6:45 on weekdays with a trivia challenge"
+riseup agent chat                                 # interactive session
+riseup agent today                                # morning briefing
+riseup recommend                                  # AI recommendations
+riseup history --type escalation --since 7d
+riseup <command> --help
+```
+
 ### Docker
 
 ```bash

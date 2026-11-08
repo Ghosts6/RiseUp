@@ -67,3 +67,12 @@ db.sqlite3
 Resource/
 
 # Frontend/         
+
+# IDE (Eclipse/VS Code Java) build output
+gui/bin/
+cli/bin/
+backend/bin/
+
+# Diagram sources — only the rendered PNG is committed
+docs/stage-2-implementation/uml/*.dot
+docs/stage-2-implementation/uml/*.svg

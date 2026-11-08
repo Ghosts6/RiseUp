@@ -38,6 +38,12 @@ public class Io {
         if (a.startsWith("n")) return false;
         return defaultValue;
     }
+    public boolean isJson() { return formatter instanceof com.riseup.cli.format.JsonFormatter; }
+    /** Prompt that returns null (instead of failing) when input ends or the shell is non-interactive. */
+    public String readOptional(String text) {
+        out.print(text + "> "); out.flush();
+        return readLine();
+    }
     public String prompt(String text) {
         if (!interactive) throw new UserInputError(text + " (re-run with more detail)");
         out.print(text + ": "); out.flush();

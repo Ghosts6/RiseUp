@@ -11,6 +11,7 @@ import javafx.animation.PauseTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
@@ -26,6 +27,9 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 public class AlarmRingingPage extends VBox {
+    private static final String NO_PHOTO_HINT = "No photo yet · JPEG or PNG only (max 5 MB)";
+    private static final int MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+
     private final AlarmSoundPlayer soundPlayer = new AlarmSoundPlayer();
     private PauseTransition unlockTimer;
     private Timeline countdown;
@@ -48,7 +52,7 @@ public class AlarmRingingPage extends VBox {
 
         Label progress = UiKit.muted("");
         TextField answer = UiKit.textField("Type your answer here", "");
-        Label photoLabel = UiKit.muted("No photo attached");
+        Label photoLabel = UiKit.muted(NO_PHOTO_HINT);
         Label status = UiKit.muted("");
         FlowPane choices = new FlowPane(8, 8);
         choices.setMaxWidth(Double.MAX_VALUE);
@@ -57,7 +61,7 @@ public class AlarmRingingPage extends VBox {
         reload.getStyleClass().add("secondary-btn");
         Button verify = new Button("Verify & dismiss");
         verify.getStyleClass().add("primary-btn");
-        Button photo = new Button("Attach photo");
+        Button photo = new Button("Upload photo");
         photo.getStyleClass().add("secondary-btn");
         Button snooze = new Button("Snooze");
         snooze.getStyleClass().add("ghost-btn");
@@ -69,6 +73,33 @@ public class AlarmRingingPage extends VBox {
         final String[] imageBase64 = {null};
         final Integer[] idHolder = {alarmId};
         final String[] soundName = {"classic"};
+        final boolean[] photoMode = {false};
+        Node answerBox = UiKit.labeled("Your answer", answer);
+
+        // Photo challenges: no text answer; Verify unlocks (and turns green) once a valid photo is attached
+        Runnable refreshVerify = () -> {
+            boolean ready = imageBase64[0] != null;
+            if (photoMode[0]) {
+                verify.setDisable(!ready);
+                verify.setText(ready ? "Verify photo & dismiss" : "Upload a photo to verify");
+            } else {
+                verify.setDisable(false);
+                verify.setText("Verify & dismiss");
+            }
+            verify.getStyleClass().remove("verify-ready");
+            if (photoMode[0] && ready) {
+                verify.getStyleClass().add("verify-ready");
+            }
+        };
+        Consumer<Boolean> setPhotoMode = on -> {
+            photoMode[0] = on;
+            imageBase64[0] = null;
+            photoLabel.setText(NO_PHOTO_HINT);
+            setShown(answerBox, !on);
+            setShown(photo, on);
+            setShown(photoLabel, on);
+            refreshVerify.run();
+        };
 
         Runnable stopSound = soundPlayer::stop;
         back.setOnAction(e -> shell.toastError("Finish the challenge or snooze before leaving."));
@@ -116,6 +147,7 @@ public class AlarmRingingPage extends VBox {
             } else {
                 progress.setText(type);
             }
+            setPhotoMode.accept("photo".equals(ch.path("input").asText("")));
             choices.getChildren().clear();
             if (ch.path("choices").isArray() && ch.path("choices").size() > 0) {
                 answer.setPromptText("Tap a choice or type it");
@@ -132,7 +164,9 @@ public class AlarmRingingPage extends VBox {
                 answer.setPromptText("Type your answer here");
             }
             answer.clear();
-            Platform.runLater(answer::requestFocus);
+            if (!photoMode[0]) {
+                Platform.runLater(answer::requestFocus);
+            }
             lockNewQuestion.run();
         };
 
@@ -163,17 +197,24 @@ public class AlarmRingingPage extends VBox {
         });
         photo.setOnAction(e -> {
             FileChooser chooser = new FileChooser();
-            chooser.setTitle("Choose verification photo");
-            chooser.getExtensionFilters().addAll(
-                    new FileChooser.ExtensionFilter("Images", "*.png", "*.jpg", "*.jpeg", "*.webp"),
-                    new FileChooser.ExtensionFilter("All files", "*.*")
-            );
+            chooser.setTitle("Choose verification photo (JPEG or PNG)");
+            chooser.getExtensionFilters().add(
+                    new FileChooser.ExtensionFilter("JPEG or PNG", "*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"));
             var file = chooser.showOpenDialog(getScene() == null ? null : getScene().getWindow());
             if (file != null) {
                 try {
-                    imageBase64[0] = Base64.getEncoder().encodeToString(Files.readAllBytes(file.toPath()));
-                    photoLabel.setText("Photo ready: " + file.getName());
-                    shell.toastOk("Photo attached.");
+                    byte[] bytes = Files.readAllBytes(file.toPath());
+                    String problem = photoProblem(bytes);
+                    if (problem != null) {
+                        imageBase64[0] = null;
+                        photoLabel.setText(NO_PHOTO_HINT);
+                        shell.toastError(problem);
+                    } else {
+                        imageBase64[0] = Base64.getEncoder().encodeToString(bytes);
+                        photoLabel.setText("Photo ready: " + file.getName());
+                        shell.toastOk("Photo attached. Tap Verify.");
+                    }
+                    refreshVerify.run();
                 } catch (Exception ex) {
                     shell.toastError(UiKit.userError(ex));
                 }
@@ -184,19 +225,23 @@ public class AlarmRingingPage extends VBox {
             if (idHolder[0] == null) {
                 return;
             }
-            if (answer.getText().isBlank() && imageBase64[0] == null) {
-                shell.toastError("Enter an answer (or attach a photo) before verifying.");
+            if (photoMode[0] && imageBase64[0] == null) {
+                shell.toastError("Upload a JPEG or PNG photo before verifying.");
+                return;
+            }
+            if (!photoMode[0] && answer.getText().isBlank()) {
+                shell.toastError("Enter an answer before verifying.");
                 answer.requestFocus();
                 return;
             }
             UiKit.runBusy(verify, "Checking…", () -> {
                 try {
                     Map<String, Object> body = new LinkedHashMap<>();
-                    if (!answer.getText().isBlank()) {
+                    if (!photoMode[0] && !answer.getText().isBlank()) {
                         body.put("answer", answer.getText().trim());
                     }
                     body.put("completed", true);
-                    if (imageBase64[0] != null) {
+                    if (photoMode[0] && imageBase64[0] != null) {
                         body.put("image_base64", imageBase64[0]);
                     }
                     JsonNode result = api.post("/api/alarms/" + idHolder[0] + "/verify", body);
@@ -248,7 +293,7 @@ public class AlarmRingingPage extends VBox {
                 challenge,
                 progress,
                 choices,
-                UiKit.labeled("Your answer", answer),
+                answerBox,
                 photoLabel,
                 Panels.actionRow(verify, reload, photo),
                 Panels.actionRow(snooze, back),
@@ -277,6 +322,24 @@ public class AlarmRingingPage extends VBox {
             load.run();
             Platform.runLater(() -> soundPlayer.play(soundName[0]));
         }
+    }
+
+    private static void setShown(Node node, boolean shown) {
+        node.setVisible(shown);
+        node.setManaged(shown);
+    }
+
+    /** Null when the bytes are a JPEG/PNG of acceptable size; otherwise a user-facing reason. */
+    private static String photoProblem(byte[] b) {
+        boolean jpeg = b.length > 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF;
+        boolean png = b.length > 8 && (b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G';
+        if (!jpeg && !png) {
+            return "Only JPEG or PNG photos are supported.";
+        }
+        if (b.length > MAX_PHOTO_BYTES) {
+            return "Photo is larger than 5 MB. Choose a smaller one.";
+        }
+        return null;
     }
 
     private void stopTimers() {

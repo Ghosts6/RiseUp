@@ -344,6 +344,16 @@
   -fx-effect: null;
 }
 
+/* Photo challenge: Verify unlocked after a valid upload */
+.primary-btn.verify-ready {
+  -fx-background-color: linear-gradient(to bottom, #14917f, #0f6b5f);
+  -fx-effect: dropshadow(gaussian, rgba(15, 107, 95, 0.40), 14, 0.22, 0, 3);
+}
+
+.primary-btn.verify-ready:hover {
+  -fx-background-color: linear-gradient(to bottom, #19a892, #0c5a50);
+}
+
 .secondary-btn {
   -fx-background-color: transparent;
   -fx-text-fill: -ru-text;

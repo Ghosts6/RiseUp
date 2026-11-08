@@ -407,14 +407,14 @@ public class TasksPage extends VBox {
         }
     }
 
-    private static String normalizeKind(String category) {
+    static String normalizeKind(String category) {
         if (category != null && category.toLowerCase(Locale.ROOT).contains("event")) {
             return "event";
         }
         return "task";
     }
 
-    private static String prettyKind(String kind) {
+    static String prettyKind(String kind) {
         return "event".equals(kind) ? "Event" : "Task";
     }
 

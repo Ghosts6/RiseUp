@@ -6,6 +6,7 @@ import com.riseup.domain.EmergencyContactEntity;
 import com.riseup.domain.UserEntity;
 import com.riseup.domain.UserPreferencesEntity;
 import com.riseup.error.NotFoundException;
+import com.riseup.error.ValidationFailedException;
 import com.riseup.health.HealthService;
 import com.riseup.repository.EmergencyContactRepository;
 import com.riseup.repository.UserPreferencesRepository;
@@ -17,11 +18,13 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PreferencesService {
+    private static final Pattern PHONE = Pattern.compile("\\+?[0-9]{7,15}");
     private final UserRepository users;
     private final UserPreferencesRepository prefsRepo;
     private final EmergencyContactRepository contacts;
@@ -89,7 +92,10 @@ public class PreferencesService {
             preferences.setPushToken(body.get("push_token") == null ? null : String.valueOf(body.get("push_token")));
         if (body.get("category_preferred_times") instanceof Map<?, ?> m)
             preferences.setCategoryPreferredTimes((Map<String, Object>) m);
-        if (body.get("phone") != null) user.setPhone(String.valueOf(body.get("phone")));
+        if (body.get("phone") != null) {
+            String phone = String.valueOf(body.get("phone")).strip();
+            user.setPhone(phone.isEmpty() ? null : normalizePhone(phone));
+        }
         if (body.get("name") != null) user.setName(String.valueOf(body.get("name")));
         if (body.get("email") != null) user.setEmail(String.valueOf(body.get("email")));
         if (body.get("timezone") != null) user.setTimezone(String.valueOf(body.get("timezone")));
@@ -108,15 +114,27 @@ public class PreferencesService {
 
     @Transactional
     public EmergencyContactEntity addContact(int userId, String name, String phone) {
+        if (name == null || name.isBlank()) {
+            throw new ValidationFailedException("Contact name is required", "name");
+        }
         EmergencyContactEntity c = new EmergencyContactEntity();
         c.setUserId(userId);
-        c.setName(name);
-        c.setPhone(phone);
+        c.setName(name.strip());
+        c.setPhone(normalizePhone(phone));
         c.setConsentStatus("pending");
         byte[] buf = new byte[16];
         new SecureRandom().nextBytes(buf);
         c.setConsentToken(Base64.getUrlEncoder().withoutPadding().encodeToString(buf));
         return contacts.save(c);
+    }
+
+    /** Accepts "+1 (416) 555-0123" style input; stores digits with optional leading +. */
+    static String normalizePhone(String raw) {
+        String cleaned = raw == null ? "" : raw.replaceAll("[\\s().-]", "");
+        if (!PHONE.matcher(cleaned).matches()) {
+            throw new ValidationFailedException("Enter a valid phone number, e.g. +14165550123", "phone");
+        }
+        return cleaned;
     }
 
     @Transactional

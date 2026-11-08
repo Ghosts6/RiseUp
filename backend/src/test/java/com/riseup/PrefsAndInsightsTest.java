@@ -41,6 +41,20 @@ class PrefsAndInsightsTest extends TestSupport {
     }
 
     @Test
+    void contactPhoneIsValidatedAndNormalized() throws Exception {
+        mvc.perform(post("/api/contacts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Bad\",\"phone\":\"123\"}"))
+                .andExpect(status().is4xxClientError());
+        JsonNode ok = json(mvc.perform(post("/api/contacts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Sam\",\"phone\":\"+1 (416) 555-0123\"}"))
+                .andExpect(status().isCreated())
+                .andReturn());
+        assertThat(ok.get("phone").asText()).isEqualTo("+14165550123");
+    }
+
+    @Test
     void generateRecommendationsAndStats() throws Exception {
         JsonNode generated =
                 json(mvc.perform(post("/api/recommendations/generate")).andExpect(status().isOk()).andReturn());

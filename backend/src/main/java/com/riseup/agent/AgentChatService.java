@@ -7,6 +7,11 @@ import com.riseup.ai.LLMClient;
 import com.riseup.ai.LLMResponse;
 import com.riseup.ai.PromptBuilder;
 import com.riseup.ai.ResponseParser;
+import com.riseup.clock.Clock;
+import com.riseup.repository.UserRepository;
+import com.riseup.time.TimeUtil;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,13 +33,18 @@ public class AgentChatService {
     private final LLMClient llm;
     private final AgentToolService tools;
     private final BriefingService briefing;
+    private final UserRepository users;
+    private final Clock clock;
     private final PromptBuilder prompts = new PromptBuilder();
     private final ResponseParser parser = new ResponseParser();
 
-    public AgentChatService(LLMClient llm, AgentToolService tools, BriefingService briefing) {
+    public AgentChatService(
+            LLMClient llm, AgentToolService tools, BriefingService briefing, UserRepository users, Clock clock) {
         this.llm = llm;
         this.tools = tools;
         this.briefing = briefing;
+        this.users = users;
+        this.clock = clock;
     }
 
     public Map<String, Object> chat(int userId, String message, List<Map<String, String>> history) {
@@ -100,7 +110,7 @@ public class AgentChatService {
         }
         messages.add(Map.of("role", "user", "content", userMessage));
 
-        LLMResponse response = llm.sendChat(messages, prompts.chatSystem(AppKnowledge.TEXT));
+        LLMResponse response = llm.sendChat(messages, prompts.chatSystem(AppKnowledge.TEXT, localNow(userId)));
         Map<String, Object> out = new LinkedHashMap<>();
         String reply = response.text() == null ? "" : response.text().strip();
         Map<String, Object> proposed = extractToolProposal(reply);
@@ -113,6 +123,12 @@ public class AgentChatService {
         out.put("provider", response.decidedBy());
         out.put("model", response.model());
         return out;
+    }
+
+    private String localNow(int userId) {
+        String tz = users.findById(userId).map(u -> u.getTimezone()).orElse("UTC");
+        LocalDateTime local = TimeUtil.toLocal(clock.now(), tz);
+        return local.format(DateTimeFormatter.ofPattern("EEEE yyyy-MM-dd HH:mm", Locale.ENGLISH)) + " (" + tz + ")";
     }
 
     public Map<String, Object> executeTool(int userId, String tool, Map<String, Object> args) {

@@ -1,5 +1,6 @@
 package com.riseup.verification;
 
+import com.riseup.ai.LLMClient;
 import com.riseup.config.RiseUpProperties;
 import com.riseup.error.ValidationFailedException;
 import java.util.Map;
@@ -16,8 +17,8 @@ public class VerificationTaskFactory {
     private final Random rng;
 
     @Autowired
-    public VerificationTaskFactory(RiseUpProperties properties) {
-        this(properties.isCameraAvailable(), new BasicImageDetector(), new Random());
+    public VerificationTaskFactory(RiseUpProperties properties, LLMClient llm) {
+        this(properties.isCameraAvailable(), new LlmObjectDetector(llm), new Random());
     }
 
     public VerificationTaskFactory(boolean cameraAvailable, ObjectDetector detector, Random rng) {

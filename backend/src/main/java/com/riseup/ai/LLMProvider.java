@@ -25,6 +25,16 @@ public interface LLMProvider {
         return complete(lastUser, system);
     }
 
+    /** Whether {@link #completeWithImage} is implemented (image understanding). */
+    default boolean supportsVision() {
+        return false;
+    }
+
+    /** Single-turn request with one image (JPEG/PNG bytes) plus a text prompt. */
+    default String completeWithImage(String prompt, String system, byte[] image, String mediaType) {
+        throw new LLMProviderError(getName() + " does not support image input");
+    }
+
     default String label() {
         return getModel() == null || getModel().isBlank() ? getName() : getName() + ":" + getModel();
     }

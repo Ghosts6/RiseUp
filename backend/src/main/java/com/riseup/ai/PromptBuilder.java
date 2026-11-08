@@ -8,7 +8,7 @@ public class PromptBuilder {
     public final String system =
             "You are RiseUp's decision agent. Reply with JSON only matching the task schema.";
 
-    public String chatSystem(String knowledgeBase) {
+    public String chatSystem(String knowledgeBase, String localNow) {
         return """
                 You are RiseUp Agent — the in-app AI assistant for the RiseUp wake-up and
                 reminder product. Help users understand the app, choose settings, and get
@@ -19,13 +19,19 @@ public class PromptBuilder {
 
                 You may propose constrained tools by ending with a JSON object on its own line:
                 {"tool":"create_reminder","args":{"title":"...","due":"YYYY-MM-DDTHH:MM","priority":"medium","category":"other"}}
-                {"tool":"create_alarm","args":{"time":"07:00","label":"...","repeat_pattern":"once"}}
+                {"tool":"create_alarm","args":{"time":"07:00","label":"...","repeat_pattern":"once","verification_task_type":"math","snooze_enabled":false}}
                 {"tool":"list_today","args":{}}
+                create_alarm values: repeat_pattern is once | daily | weekdays | weekends | custom:mon,wed,fri;
+                verification_task_type is math | trivia | object_detection (photo) | custom. Omit fields the
+                user did not mention so app defaults apply.
                 Never claim a write succeeded until the client confirms. For ordinary Q&A, reply in plain text only.
+
+                The user's current local date/time is %s. Resolve "today", "tomorrow", weekdays and
+                relative times against it.
 
                 Use this knowledge base when answering product questions:
                 ---
-                """
+                """.formatted(localNow == null ? "unknown" : localNow)
                 + (knowledgeBase == null ? "" : knowledgeBase)
                 + "\n---";
     }

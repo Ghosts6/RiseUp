@@ -38,6 +38,7 @@ public class RiseUpProperties {
     private String llmPrioritizeProvider = "claude";
     private String llmRecommendProvider = "claude";
     private String llmChatProvider = "openai";
+    private String llmVisionProvider = "claude";
     private String mockLlmMode = "normal";
     private String twilioAccountSid = "";
     private String twilioAuthToken = "";
@@ -133,6 +134,8 @@ public class RiseUpProperties {
     public void setLlmRecommendProvider(String llmRecommendProvider) { this.llmRecommendProvider = llmRecommendProvider; }
     public String getLlmChatProvider() { return llmChatProvider; }
     public void setLlmChatProvider(String llmChatProvider) { this.llmChatProvider = llmChatProvider; }
+    public String getLlmVisionProvider() { return llmVisionProvider; }
+    public void setLlmVisionProvider(String llmVisionProvider) { this.llmVisionProvider = llmVisionProvider; }
     public String getMockLlmMode() { return mockLlmMode; }
     public void setMockLlmMode(String mockLlmMode) { this.mockLlmMode = mockLlmMode; }
     public String getTwilioAccountSid() { return twilioAccountSid; }

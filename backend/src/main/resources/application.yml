@@ -51,6 +51,7 @@ riseup:
   llm-prioritize-provider: ${LLM_PRIORITIZE_PROVIDER:claude}
   llm-recommend-provider: ${LLM_RECOMMEND_PROVIDER:claude}
   llm-chat-provider: ${LLM_CHAT_PROVIDER:openai}
+  llm-vision-provider: ${LLM_VISION_PROVIDER:claude}
   mock-llm-mode: ${MOCK_LLM_MODE:normal}
   twilio-account-sid: ${TWILIO_ACCOUNT_SID:}
   twilio-auth-token: ${TWILIO_AUTH_TOKEN:}

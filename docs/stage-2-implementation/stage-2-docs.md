@@ -85,101 +85,260 @@ Stage 1 proposed **F01–F14**; all are implemented. **F15** and **F16** are new
 ### 2.2 Per-feature detail
 
 **F01 — Alarm Management** · Stage 1: F01 · Implemented · Deterministic
+- *Original requirement (Stage 1):* Create, edit, enable/disable and delete alarms with time, label, sound, vibration, repeat pattern, snooze setting and verification task type; at most 20 alarms per user; invalid times rejected.
+- *Difference from the requirement:* None. Implemented as specified.
 - *Classes:* `alarm/AlarmControllerService` (validation, 20-alarm limit, CRUD); `alarm/AlarmSchedulerService` (trigger jobs); `domain/AlarmEntity`, `repository/AlarmRepository` (persistence); `api/AlarmController` (REST); GUI `AlarmFormPage`, `DashboardPage`; CLI `alarm add|list|edit|delete|toggle`.
 - *Key methods:* `AlarmControllerService.createAlarm / editAlarm / toggle / delete`, `AlarmSchedulerService.scheduleAlarm`.
 - *Flow:* GUI form or CLI → `POST /api/alarms` → `createAlarm()` validates time, task type and the limit → saves → `scheduleAlarm()` registers the trigger job → status events go to the dashboard over WebSocket.
 - *Video:* [3:01–7:59](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=181)
+- *Screenshots:*
+
+  ![GUI: New Alarm form](./screenshots/f01-alarm-form.png)
+  *GUI: New Alarm form*
+
+  ![GUI: dashboard alarm list with status badges](./screenshots/f01-dashboard-alarms.png)
+  *GUI: dashboard alarm list with status badges*
+
+  ![CLI: add, toggle and list alarms; invalid time rejected](./screenshots/f01-cli.png)
+  *CLI: add, toggle and list alarms; invalid time rejected*
+
 
 **F02 — Verification Challenge** · Stage 1: F02 · **Modified** · Hybrid
+- *Original requirement (Stage 1):* A ringing alarm cannot be dismissed until the user completes a challenge (photo object detection, math, trivia or custom). Wrong attempts reset the challenge, and repeated camera failure falls back to math. Photo checking was planned with a vision library and as GUI-only.
+- *Difference from the requirement:* Photos are checked by Claude vision after a local quality gate instead of a vision library. Photos can also be verified from the CLI (`alarm verify --photo`), and multi-question series were added. See §4.2.
 - *Classes:* `verification/VerificationTask` (strategy interface) with `MathTask`, `TriviaTask`, `CustomTask`, `SeriesTask` (multi-question), `ObjectDetectionTask`; `VerificationTaskFactory` (creates the right task, falls back to math after repeated camera failures); `ObjectDetector` strategy with `LlmObjectDetector` (AI) and `BasicImageDetector` (local gate / fallback); GUI `AlarmRingingPage`; CLI `alarm challenge|verify --answer|--done|--photo`.
 - *Key methods:* `VerificationTaskFactory.create / fromState`, `VerificationTask.validate`, `LlmObjectDetector.detect`, `LLMClient.sendVision`, `AlarmControllerService.getChallenge / verify`.
 - *Flow:* alarm fires → `getChallenge()` asks the factory for a task → GUI shows it (photo challenges show only an upload control; Verify unlocks after a valid JPEG/PNG) → `verify()` calls `task.validate()`. For photos, `LlmObjectDetector` first runs `BasicImageDetector`, then sends the image to Claude, which returns `{present, confidence, seen}`. A wrong object is rejected with what the model saw.
 - *Change:* see §4 (vision library → LLM vision; photo now also possible from the CLI).
 - *Video:* [8:00–13:47](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=480)
+- *Screenshots:*
+
+  ![GUI: ringing alarm with a trivia challenge](./screenshots/f02-ringing-trivia.png)
+  *GUI: ringing alarm with a trivia challenge*
+
+  ![GUI: photo challenge (Verify unlocks after a JPEG/PNG upload)](./screenshots/f02-ringing-photo.png)
+  *GUI: photo challenge (Verify unlocks after a JPEG/PNG upload)*
+
+  ![CLI: wrong answer gets a new question, correct answer dismisses](./screenshots/f02-cli.png)
+  *CLI: wrong answer gets a new question, correct answer dismisses*
+
 
 **F03 — Post-Wake Check-in** · Stage 1: F03 · Implemented · Deterministic
+- *Original requirement (Stage 1):* 5–10 minutes after a successful verification, ask "Are you still awake?". A missed confirmation hands over to F04, and push failure falls back to SMS.
+- *Difference from the requirement:* None in behaviour. The delay is a user setting (1–120 min, default 7), and the GUI check-in asks a one-line question so the user actively confirms.
 - *Classes:* `alarm/CheckInService`; `tools/ToolManager` (push, SMS fallback); GUI `CheckInPage`; CLI `checkin confirm|list`.
 - *Key methods:* `CheckInService.schedule / send / recordResponse / timeoutHandler`.
 - *Flow:* successful verification → `schedule()` → `send()` pushes "Are you still awake?" → user confirms (`recordResponse`) or `timeoutHandler()` hands over to F04.
 - *Video:* [13:50–16:12](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=830)
+- *Screenshots:*
+
+  ![GUI: post-wake check-in](./screenshots/f03-checkin.png)
+  *GUI: post-wake check-in*
+
+  ![CLI: list and confirm check-ins](./screenshots/f03-cli.png)
+  *CLI: list and confirm check-ins*
+
 
 **F04 — AI Escalation Decision** · Stage 1: F04 · Implemented · AI with fallback
+- *Original requirement (Stage 1):* When an alarm or check-in is ignored, the agent reads the user's history and picks the next escalation method with reasoning and confidence. The method must be enabled. A timeout, malformed JSON or disabled method falls back to a rule-based ladder.
+- *Difference from the requirement:* None. Implemented as specified.
 - *Classes:* `agent/AgentController` (entry point), `agent/EscalationEngine` (context, decision, validation, fallback), `ai/PromptBuilder`, `ai/LLMClient`, `ai/LLMProvider` (+ `ClaudeProvider`), `ai/ResponseParser`, `domain/EscalationLogEntity`.
 - *Key methods:* `AgentController.runEscalation`, `EscalationEngine.buildContext / decideEscalation / fallbackLadder`, `PromptBuilder.buildEscalationPrompt`, `ResponseParser.parseDecision`.
 - *Flow:* missed alarm or check-in → `runEscalation()` → `buildContext()` (profile stats, recent escalations, enabled methods) → prompt → Claude → `parseDecision()` checks that the method is enabled → decision with reasoning and confidence is logged and passed to F05. Timeout, invalid JSON or a disabled method → `fallbackLadder()`, logged as `fallback_used`.
 - *Video:* [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973)
+- *Screenshots:*
+
+  ![GUI: escalation attempts in History](./screenshots/f04-history-escalation.png)
+  *GUI: escalation attempts in History*
+
+  ![CLI: escalation chain (Claude decisions and one rule-based fallback) and its explanation](./screenshots/f04-cli.png)
+  *CLI: escalation chain (Claude decisions and one rule-based fallback) and its explanation*
+
 
 **F05 — Multi-Channel Escalation Execution** · Stage 1: F05 · Implemented · Deterministic
+- *Original requirement (Stage 1):* Execute the chosen escalation (call, SMS, Alexa, contact) through external services, log each outcome, and try the next channel when one fails. If the whole chain fails, the alarm is marked unanswered.
+- *Difference from the requirement:* None. Twilio, Alexa and Firebase run live when keys are configured and fall back to mock adapters otherwise (the screenshots use the mocks).
 - *Classes:* `tools/ToolManager`; `tools/Tool` (adapter interface); `TwilioClient`, `AlexaClient`, `FirebaseClient` (live) and `Mock*` clients; `EscalationEngine.scheduleFollowup`.
 - *Key methods:* `ToolManager.executeEscalation / sendSms / contactEmergency`, `EscalationEngine.followup / markUnanswered`.
 - *Flow:* decision → `executeEscalation(method)` → adapter → result logged → after 30 s with no response the next channel is tried; when the whole chain fails the alarm is marked unanswered.
 - *Video:* [16:13–19:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=973)
+- *Screenshots:*
+
+  ![GUI: dashboard notifications as each channel is tried (call, SMS, Alexa, push)](./screenshots/f10-dashboard-notifications.png)
+  *GUI: dashboard notifications as each channel is tried (call, SMS, Alexa, push)*
+
 
 **F06 — Emergency Contact & Escalation Preferences** · Stage 1: F06 · Implemented · Deterministic
+- *Original requirement (Stage 1):* Manage enabled channels, phone number, quiet hours and an emergency contact. The contact is used only after explicit consent, phone numbers are validated, and the user can send a test message.
+- *Difference from the requirement:* None. Implemented as specified, with consent through a one-time link.
 - *Classes:* `prefs/PreferencesService`, `domain/UserPreferencesEntity`, `domain/EmergencyContactEntity`, `api/PreferencesController`; GUI `SettingsPage`; CLI `prefs show|set|test`, `contact add|list|remove|test`.
 - *Key methods:* `PreferencesService.update / addContact / consentLink / respondConsent / testChannel / testContact`.
 - *Flow:* settings form → `update()` validates channels and phone numbers → contacts stay excluded until consent is recorded → "test" sends through `ToolManager`.
 - *Video:* [19:01–22:00](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1141)
+- *Screenshots:*
+
+  ![GUI: Settings (profile, channels, escalation order, quiet hours)](./screenshots/f06-settings.png)
+  *GUI: Settings (profile, channels, escalation order, quiet hours)*
+
+  ![CLI: contacts with consent status and channel tests](./screenshots/f06-cli.png)
+  *CLI: contacts with consent status and channel tests*
+
 
 **F07 — Natural-Language Reminder Creation** · Stage 1: F07 · Implemented · Hybrid
+- *Original requirement (Stage 1):* Turn a sentence like "remind me to call mom tomorrow at 9am" into a reminder (title, time, priority, category). The parse is confirmed before saving, and ambiguous input gets a clarifying question.
+- *Difference from the requirement:* None. In the GUI, "Fill from text" fills the editable task form, which acts as the confirmation card. The CLI asks for confirmation (or takes `-y`).
 - *Classes:* `reminder/NlParser`, `ai/PromptBuilder`, `ai/LLMClient`, `ai/ResponseParser`, `reminder/ReminderFactory`; GUI `TasksPage` ("Fill from text") and `AgentPage`; CLI `remind "<sentence>"`.
 - *Key methods:* `NlParser.parse`, `PromptBuilder.buildParsePrompt`, `ResponseParser.parseReminder`, `ReminderFactory.create`.
 - *Flow:* sentence → `parse()` → LLM JSON (`ok | needs_clarification | past_time`) → deterministic date validation → user confirms → `ReminderFactory.create()` → scheduled. Ambiguous input gets a clarifying question.
 - *Video:* [22:00–24:32](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1320)
+- *Screenshots:*
+
+  ![GUI: "Fill from text" fills the task form from a sentence](./screenshots/f07-fill-from-text.png)
+  *GUI: "Fill from text" fills the task form from a sentence*
+
+  ![CLI: `remind` parses a sentence into a reminder](./screenshots/f07-cli.png)
+  *CLI: `remind` parses a sentence into a reminder*
+
 
 **F08 — Reminder Management** · Stage 1: F08 · Implemented · Deterministic
+- *Original requirement (Stage 1):* Create, edit, complete, snooze and delete reminders, including recurring reminders, with priority and category filters.
+- *Difference from the requirement:* Minor: CLI `--due` also accepts `today 18:30`, `tomorrow 9am` and `in 30 minutes` (see §4.2).
 - *Classes:* `reminder/ReminderControllerService`, `reminder/ReminderFactory`, `reminder/ReminderSchedulerService`, `repository/ReminderRepository`; GUI `TasksPage` and the dashboard "Tasks & events" card; CLI `task add|list|edit|done|snooze|delete` (`--due` also accepts `tomorrow 9am`, `in 30 minutes`).
 - *Key methods:* `ReminderControllerService.create / update / complete / snooze / delete / spawnNext`, `ReminderFactory.nextOccurrence`.
 - *Flow:* form or CLI → validate → save → `scheduleReminder()`; completing a recurring reminder spawns the next occurrence.
 - *Video:* [24:33–27:21](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1473)
+- *Screenshots:*
+
+  ![GUI: Tasks & Events list with filters and actions](./screenshots/f08-tasks-list.png)
+  *GUI: Tasks & Events list with filters and actions*
+
+  ![CLI: add, list, complete and snooze tasks](./screenshots/f08-cli.png)
+  *CLI: add, list, complete and snooze tasks*
+
 
 **F09 — AI Reminder Prioritization** · Stage 1: F09 · Implemented · AI with fallback
+- *Original requirement (Stage 1):* When several reminders are due together, the agent ranks them with reasoning. The ranking is accepted only if every reminder appears exactly once; otherwise a deterministic sort is used.
+- *Difference from the requirement:* None. The ranking and its reasoning are shown by `task priority-preview` ("Decided by: llm:claude" or "rules").
 - *Classes:* `reminder/ReminderPrioritizer`, `ai/PromptBuilder`, `ai/LLMClient`, `ai/ResponseParser`; CLI `task priority-preview`.
 - *Key methods:* `ReminderPrioritizer.prioritize`, `ReminderControllerService.priorityPreview`, `ResponseParser.parsePrioritize`.
 - *Flow:* several reminders due → `prioritize()` → Claude ranks them with reasoning → the ranking is accepted only if every reminder appears exactly once, otherwise the deterministic sort is used. Output shows `Decided by: llm:claude` or `rules`.
 - *Video:* [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642)
+- *Screenshots:*
+
+  ![CLI: AI ranking of due tasks with reasoning](./screenshots/f09-cli.png)
+  *CLI: AI ranking of due tasks with reasoning*
+
 
 **F10 — Reminder Escalation Levels** · Stage 1: F10 · Implemented · Deterministic
+- *Original requirement (Stage 1):* An unanswered reminder is re-sent at +5 min and +15 min with a stronger tone, then marked missed. Completing it stops the sequence.
+- *Difference from the requirement:* None. Implemented as specified.
 - *Classes:* `reminder/ReminderSchedulerService`, `tools/ToolManager`, `events/EventBus` + `DefaultObservers` (reminder logger, dashboard).
 - *Key methods:* `ReminderSchedulerService.notifyDue / markMissed`, `ToolManager.sendReminder`.
 - *Flow:* primary notification → re-sent at +5 min and +15 min with stronger tone → marked missed; completing the task cancels the sequence. Each status change is emitted to observers.
 - *Video:* [27:22–32:30](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1642)
+- *Screenshots:*
+
+  ![GUI: dashboard notifications: "Reminder: Take vitamins" when due, then "Still to do: Take vitamins" (second nudge) 5 minutes later](./screenshots/f10-reminder-levels.png)
+  *GUI: dashboard notifications: "Reminder: Take vitamins" when due, then "Still to do: Take vitamins" (second nudge) 5 minutes later*
+
+  *CLI: `task done <id>` stops the sequence (see the F08 CLI screenshot).*
+
 
 **F11 — Behavioral Learning & Profile Update** · Stage 1: F11 · Implemented · Deterministic
+- *Original requirement (Stage 1):* A nightly job aggregates logs into the user profile: escalation success per method, typical wake time, completion rate by category, and verification stats. With too little data it keeps defaults.
+- *Difference from the requirement:* None. Runs nightly at 02:15 and on demand (`profile recompute` / "Refresh my profile").
 - *Classes:* `insights/LearningService`, `insights/LearningNightlyJob` (02:15 daily), `domain/UserProfileEntity`; CLI `profile show|recompute`.
 - *Key methods:* `LearningService.analyzeBehavior / recomputeAllUsers`.
 - *Flow:* aggregates alarm, escalation and reminder logs into a wake-hour histogram, verification stats, per-method escalation success rates and per-category completion rates; marks "insufficient" below 5 signals. F04, F09 and F13 read this profile.
 - *Video:* [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951)
+- *Screenshots:*
+
+  ![GUI: Insights "Your morning story" and personal tips from the profile](./screenshots/f11-insights-profile.png)
+  *GUI: Insights "Your morning story" and personal tips from the profile*
+
+  ![CLI: learned profile (escalation success per channel, wake-hour histogram)](./screenshots/f11-cli.png)
+  *CLI: learned profile (escalation success per channel, wake-hour histogram)*
+
 
 **F12 — Sleep & Completion Analytics Dashboard** · Stage 1: F12 · Implemented · Deterministic
+- *Original requirement (Stage 1):* Show wake, verification, escalation and task-completion numbers over 7, 30 or 90 days, as charts in the GUI and a table or JSON in the CLI.
+- *Difference from the requirement:* None. Implemented as specified.
 - *Classes:* `insights/AnalyticsService`, `api/InsightsController`; GUI `InsightsPage`; CLI `stats --range 7d|30d|90d [--json]`.
 - *Key methods:* `AnalyticsService.getStats`.
 - *Flow:* range → `getStats()` → GUI charts, or CLI table / JSON through the `OutputFormatter` strategy.
 - *Video:* [32:31–35:05](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=1951)
+- *Screenshots:*
+
+  ![GUI: Insights page with range selector and summary cards](./screenshots/f12-insights.png)
+  *GUI: Insights page with range selector and summary cards*
+
+  ![CLI: `stats --range 30d`](./screenshots/f12-cli.png)
+  *CLI: `stats --range 30d`*
+
 
 **F13 — AI Personalized Recommendations** · Stage 1: F13 · Implemented · AI with fallback
+- *Original requirement (Stage 1):* The agent turns profile statistics into up to 5 concrete setting suggestions with rationale. Each one is validated against allowed settings and can be accepted (applied) or dismissed.
+- *Difference from the requirement:* None. Implemented as specified.
 - *Classes:* `insights/RecommendationService`, `ai/PromptBuilder`, `ai/LLMClient`, `ai/ResponseParser`, `domain/RecommendationEntity`; GUI `RecommendationsPage`; CLI `recommend [--apply n | --dismiss n]`.
 - *Key methods:* `RecommendationService.generate / accept / dismiss`, `PromptBuilder.buildRecommendPrompt`, `ResponseParser.parseRecommendations`.
 - *Flow:* profile + current settings → Claude suggests changes → each is validated against allowed settings (unsafe ones, e.g. disabling all escalation, are dropped) → accept applies through `PreferencesService`.
 - *Video:* [35:06–36:50](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2106)
+- *Screenshots:*
+
+  ![GUI: Recommendations with Accept / Dismiss](./screenshots/f13-recommendations.png)
+  *GUI: Recommendations with Accept / Dismiss*
+
+  ![CLI: generated suggestions and applying one](./screenshots/f13-cli.png)
+  *CLI: generated suggestions and applying one*
+
 
 **F14 — History & Decision Explanation** · Stage 1: F14 · Implemented · Hybrid
+- *Original requirement (Stage 1):* A filterable history of alarms, verifications, escalations and reminders, where each AI decision can be opened to see its reasoning, confidence and whether the fallback was used.
+- *Difference from the requirement:* None. Implemented as specified.
 - *Classes:* `history/HistoryService`, `api/HistoryController`, `api/EscalationController`; GUI `HistoryPage`; CLI `history --type --since`, `escalation explain <id>`.
 - *Key methods:* `HistoryService.list / explain`.
 - *Flow:* filtered, paginated event list; `explain()` loads the stored decision (method, reasoning, confidence, provider, whether the fallback was used).
 - *Video:* [36:51–38:57](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2211)
+- *Screenshots:*
+
+  ![GUI: History timeline with type and date filters](./screenshots/f14-history.png)
+  *GUI: History timeline with type and date filters*
+
+  ![CLI: escalation history and `escalation explain`](./screenshots/f14-cli.png)
+  *CLI: escalation history and `escalation explain`*
+
 
 **F15 — Agent Chat with Tool Actions** · **New** · Implemented · AI
+- *Original requirement (Stage 1):* None (not in Stage 1).
+- *Difference from the requirement:* New feature, added for the reasons in §4.2.
 - *Classes:* `agent/AgentChatService` (intent routing, multi-turn chat, tool-proposal extraction); `agent/AgentToolService` (whitelisted tools `create_alarm`, `create_reminder`, `list_today`); `ai/PromptBuilder.chatSystem` (app knowledge + tool schema + user's local date/time); `ai/AppKnowledge`; `api/AgentChatController`; GUI `AgentPage` (chat history in `AgentChatStore`); CLI `agent chat ["message"]` (one-shot or interactive).
 - *Key methods:* `AgentChatService.chat / executeTool`, `AgentToolService.execute / proposeReminderFromText`, `LLMClient.sendChat`.
 - *Flow:* user message → shortcuts for "remind me…" (F07 parser) and "what's on today" (F16) → otherwise multi-turn LLM chat → if the reply ends with a tool JSON for a known tool, it is returned as `proposed_action` → GUI or CLI asks for confirmation → `POST /api/agent/tools/execute` → the same domain services as the forms (validation and limits still apply).
 - *Video:* [38:58–43:18](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2338)
+- *Screenshots:*
+
+  ![GUI: Agent page answering a question, then proposing a reminder that waits for Confirm](./screenshots/f15-agent.png)
+  *GUI: Agent page answering a question, then proposing a reminder that waits for Confirm*
+
+  ![CLI: running the agent on a task file, and a product question](./screenshots/f15-cli.png)
+  *CLI: running the agent on a task file, and a product question*
+
 
 **F16 — Daily Briefing** · **New** · Implemented · Deterministic
+- *Original requirement (Stage 1):* None (not in Stage 1).
+- *Difference from the requirement:* New feature, added for the reasons in §4.2.
 - *Classes:* `agent/BriefingService`; GUI dashboard "This morning" card and `AgentPage`; CLI `agent today`.
 - *Key methods:* `BriefingService.today`.
 - *Flow:* collects today's active alarms, open or overdue tasks, high-priority items and pending check-ins in the user's timezone → summary sentence plus lists.
 - *Video:* [43:19–44:08](https://drive.google.com/file/d/1DbWWvSnNMgezuRW2iqfe6cr8yuU-6hgs/view?t=2599)
+- *Screenshots:*
+
+  ![GUI: dashboard "This morning" briefing](./screenshots/f16-dashboard-briefing.png)
+  *GUI: dashboard "This morning" briefing*
+
+  ![CLI: `agent today`](./screenshots/f16-cli.png)
+  *CLI: `agent today`*
+
 
 ---
 
@@ -432,11 +591,12 @@ Every feature segment shows the GUI and the CLI running against the same backend
 ## Submission contents
 
 - Source: GUI + CLI + AI integration (Java modules; legacy archived under `legacy/`)
-- README with prerequisites, `.env` copy, API keys, launch commands and CLI examples
+- README with prerequisites, `.env` copy, API keys and launch commands, plus a **standalone CLI** section: `java -jar cli/build/libs/cli-0.2.0.jar …`, running the agent on a task file, and a table of every global option and command
 - Build files (Gradle) + Docker Compose
 - Updated UML class diagram (`uml/ClassDiagram-stage2.png`)
 - This report (`stage2-report.pdf`)
 - Feature demonstration video, indexed per feature in §2 and §7
+- GUI and CLI screenshots for every feature in §2.2 (`screenshots/`), each next to the original Stage 1 requirement and any difference from it
 - `.gitignore` + `.env.example`; no real keys or credentials committed
 
 ---

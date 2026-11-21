@@ -40,24 +40,81 @@ to the mock provider, and `GET /api/health` shows which provider each feature us
 `LLM_ESCALATION_PROVIDER`, `LLM_PARSE_PROVIDER`, `LLM_PRIORITIZE_PROVIDER`, `LLM_RECOMMEND_PROVIDER`,
 `LLM_CHAT_PROVIDER`, `LLM_VISION_PROVIDER` (`claude` | `openai` | `mock`; vision needs `claude`).
 
-### CLI examples
+### Standalone CLI (`java -jar`)
+
+The CLI is a single runnable jar (all dependencies included). It talks to the backend over HTTP, so start the backend first (`./gradlew :backend:bootRun` or Docker Compose).
 
 ```bash
-./gradlew :cli:installDist && alias riseup=cli/build/install/cli/bin/cli   # or: ./gradlew :cli:run --args='...'
+./gradlew :cli:jar                                   # builds cli/build/libs/cli-0.2.0.jar
+java -jar cli/build/libs/cli-0.2.0.jar health        # check backend + which LLM each feature uses
+alias riseup='java -jar cli/build/libs/cli-0.2.0.jar' # optional shortcut used below
+```
 
-riseup alarm add 07:30 --label Morning --task math
+**Run the agent on a task written in a file** (the LLM provider is chosen by the backend, see *API keys* above):
+
+```bash
+echo "Set an alarm labeled Study at 6:45 on weekdays with a trivia challenge, no snooze" > task.txt
+java -jar cli/build/libs/cli-0.2.0.jar -y agent chat "$(cat task.txt)"
+# agent> I can set that for 6:45 AM on weekdays with a trivia challenge and snooze disabled. ...   [llm:openai]
+# Proposed action: create_alarm {"time":"06:45","label":"Study","repeat_pattern":"weekdays","verification_task_type":"trivia","snooze_enabled":false}
+# Alarm set for 06:45.
+```
+
+Without `-y` the CLI asks before the agent creates anything. With no message (`riseup agent chat`) it starts an interactive session.
+
+#### Global options (before the command)
+
+| Option | Meaning | Default |
+|---|---|---|
+| `--server=<url>` | Backend URL | `$RISEUP_SERVER`, else `http://localhost:8000` |
+| `--token=<token>` | API token | `$RISEUP_TOKEN` / `$DEMO_TOKEN`, else `dev-token` |
+| `--json` | Machine-readable JSON output instead of tables | off |
+| `-y`, `--yes` | Answer yes to confirmations (agent actions, parsed reminders, deletes) | off |
+| `-h`, `--help` / `-V`, `--version` | Help (works on every command) / version | |
+
+Exit codes: `0` success, `1` error (backend or network), `2` usage or validation error.
+
+#### Commands
+
+| Command | Options / arguments | Feature |
+|---|---|---|
+| `alarm add <HH:MM>` | `--label`, `--task math\|trivia\|object_detection\|custom`, `--custom-text`, `--repeat once\|daily\|weekdays\|weekends\|custom:mon,wed,fri`, `--[no-]snooze`, `--sound`, `--vibration` | F01 |
+| `alarm list` · `alarm edit <id>` · `alarm delete <id>` · `alarm toggle <id>` | edit takes the same options as add plus `--time`; toggle takes `--on` / `--off` | F01 |
+| `alarm trigger <id>` · `alarm challenge <id>` · `alarm snooze <id>` | | F02 |
+| `alarm verify <id>` | `--answer <value>` (math/trivia) · `--done` (custom) · `--photo <file.jpg\|png>` (AI vision) | F02 |
+| `checkin list` · `checkin confirm` | | F03 |
+| `escalation list` · `escalation status <alarm-id>` · `escalation explain <id>` · `escalation ack` | | F04, F05, F14 |
+| `prefs show` · `prefs set` · `prefs test <channel>` | set: `--name`, `--phone`, `--email`, `--timezone`, `--channels`, `--order`, `--notify`, `--quiet HH:MM-HH:MM`, `--[no-]checkin`, `--checkin-delay`, `--default-task` | F06 |
+| `contact add <name> <phone>` · `contact list` · `contact remove <id>` · `contact test <id>` | | F06 |
+| `remind "<sentence>"` | | F07 |
+| `task add` · `task edit <id>` | `--title`, `--due` (`YYYY-MM-DD HH:MM`, `today 18:30`, `tomorrow 9am`, `in 30 minutes`), `--priority low\|medium\|high\|critical`, `--category`, `--repeat none\|daily\|weekly\|weekdays`, `--notify`, `--notes`; edit also `--scope this\|all` | F08 |
+| `task list` | `--status`, `--category`, `--priority` | F08 |
+| `task done <id>` · `task snooze <id> [minutes]` · `task delete <id>` | done: `--already`; snooze: `--minutes` | F08, F10 |
+| `task priority-preview` | | F09 |
+| `profile show` · `profile recompute` | | F11 |
+| `stats` | `--range 7d\|30d\|90d` (default `30d`) | F12 |
+| `recommend` | `--apply <n>` · `--dismiss <n>` | F13 |
+| `history` | `--type alarm\|reminder\|escalation`, `--since 7d`, `--page <n>` | F14 |
+| `agent chat ["message"]` · `agent today` | | F15, F16 |
+| `health` | | |
+
+#### More examples
+
+```bash
+riseup alarm add 07:30 --label Morning --task math --repeat weekdays
 riseup alarm verify 3 --answer 42                 # math / trivia
 riseup alarm verify 3 --photo ~/Desktop/mug.jpg   # photo challenge (AI vision)
-riseup task add --title "Buy milk" --due "tomorrow 9am"
+riseup task add --title "Buy milk" --due "tomorrow 9am" --priority low
 riseup remind "call mom tomorrow at 9am"          # natural language (AI parse, you confirm)
 riseup task priority-preview                      # AI ranking of due tasks
-riseup agent chat "set an alarm for 6:45 on weekdays with a trivia challenge"
-riseup agent chat                                 # interactive session
 riseup agent today                                # morning briefing
-riseup recommend                                  # AI recommendations
+riseup --json stats --range 7d                    # JSON output for scripts
 riseup history --type escalation --since 7d
-riseup <command> --help
 ```
+
+Screenshots of every command in action are in [docs/stage-2-implementation/stage-2-docs.md](docs/stage-2-implementation/stage-2-docs.md) (§2.2).
+
+You can also run the CLI without building the jar: `./gradlew :cli:run --args='health'`, or `./gradlew :cli:installDist` and then `cli/build/install/cli/bin/cli`.
 
 ### Docker
 
